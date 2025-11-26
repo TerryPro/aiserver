@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from jupyter_server.base.handlers import APIHandler
 from jupyter_server.utils import url_path_join
 from deepseek import DeepSeekClient
+from . import prompts
 
 # 配置日志
 logging.basicConfig(
@@ -59,7 +60,7 @@ class GenerateHandler(APIHandler):
             output = data.get("output", "")  # 获取代码执行输出（错误信息等）
             variables = data.get("variables", []) # 获取变量信息
             
-            logger.info(f"请求参数 - 语言: {language}, 意图: {intent}, 模式: {options.get('mode', 'replace')}, 变量数: {len(variables)}")
+            logger.info(f"请求参数 - 语言: {language}, 意图: {intent}, 模式: {options.get('mode', 'create')}, 变量数: {len(variables)}")
             
             # Generate code suggestion based on the provided parameters
             suggestion = self.generate_suggestion(language, source, context, intent, options, output, variables)
@@ -136,10 +137,10 @@ class GenerateHandler(APIHandler):
             logger.debug(f"原始响应内容:\n{suggestion}")
             
             # 根据模式决定是否清理 Markdown 代码块标记
-            mode = options.get("mode", "replace")
+            mode = options.get("mode", "create")
             
             if mode != "explain":
-                # replace/fix 模式：移除可能的 Markdown 代码块标记
+                # create/fix 模式：移除可能的 Markdown 代码块标记
                 if suggestion.startswith("```"):
                     logger.info("检测到 Markdown 代码块标记，正在清理...")
                     lines = suggestion.split("\n")
@@ -188,81 +189,12 @@ class GenerateHandler(APIHandler):
         Returns:
             str: 系统提示词内容
         """
-        mode = options.get("mode", "replace")
+        mode = options.get("mode", "create")
         logger.info(f"构造系统提示词，模式: {mode}")
         
-        # 基础角色定义
-        base_role = "你是一个专业的Jupyter Notebook开发助手。"
+        # 直接获取模式对应的完整系统提示词
+        system_content = prompts.MODE_PROMPTS.get(mode, prompts.MODE_PROMPTS["create"])
         
-        # 通用编码规范
-        common_rules = [
-            "编码规范：",
-            "- 遵循Python最佳实践（PEP 8）",
-            "- 遵循Jupyter Notebook最佳实践",
-            "- 使用matplotlib绘制图表",
-            "- 使用清晰、描述性的变量名",
-            "- 对关键步骤添加中文注释",
-            "- 确保代码简洁高效"
-        ]
-        
-        # 根据模式构造不同的提示词
-        if mode == "explain":
-            prompt_parts = [
-                base_role,
-                "",
-                "当前任务：根据当前代码生成Markdown格式的代码解释文档",
-                "",
-                "输出要求：",
-                "- 使用标准Markdown格式（标题、列表、代码引用等）",
-                "- 文档内容全面准确，易于理解",
-                "- 解释代码的目的、原理和关键逻辑",
-                "",
-                *common_rules
-            ]
-        elif mode == "fix":
-            prompt_parts = [
-                base_role,
-                "",
-                "当前任务：根据用户意图分析并修复代码中的问题或者优化代码",
-                "",
-                "输出要求：",
-                "- 只输出Python代码和注释，不要包含任何Markdown标记",
-                "- 绝对不要使用```python或```等代码块标记",
-                "- 直接输出可执行的Python代码，不要有任何格式包装",
-                "- 代码必须完整且独立，可直接在Jupyter Notebook中运行",
-                "",
-                "修复指导：",
-                "- 仔细分析执行结果中的错误信息",
-                "- 保留原代码中正确的部分，只修复有问题的地方",
-                "- 如果是语法错误，修正语法问题",
-                "- 如果是逻辑错误，调整代码逻辑",
-                "- 如果是运行时错误，添加必要的错误处理或数据验证",
-                "- 在修复的地方添加注释说明修改原因",
-                "",
-                *common_rules
-            ]
-        else:  # replace 模式
-            prompt_parts = [
-                base_role,
-                "",
-                "当前任务：根据用户意图编写Python代码",
-                "",
-                "输出要求：",
-                "- 只输出Python代码和注释，不要包含任何Markdown标记",
-                "- 绝对不要使用```python或```等代码块标记",
-                "- 直接输出可执行的Python代码，不要有任何格式包装",
-                "- 代码必须完整且独立，可直接在Jupyter Notebook中运行",
-                "",
-                "生成指导：",
-                "- 充分理解用户意图，生成符合需求的代码",
-                "- 如果提供了环境变量（DataFrame等），优先使用这些变量",
-                "- 代码应该具有良好的可读性和可维护性",
-                "- 对复杂逻辑添加详细的中文注释",
-                "",
-                *common_rules
-            ]
-        
-        system_content = "\n".join(prompt_parts)
         logger.info(f"系统提示词构造完成，长度: {len(system_content)} 字符")
         return system_content
     
@@ -285,46 +217,40 @@ class GenerateHandler(APIHandler):
         logger.info("开始构造用户提示词...")
         prompt_parts = []
         
-        # 1. 任务描述
-        mode = options.get("mode", "replace")
-        logger.info(f"设置生成模式: {mode}")
-        
-        if mode == "replace":
-            task_desc = "根据用户意图和环境变量，生成Python代码"
-        elif mode == "fix":
-            task_desc = "根据用户意图、当前代码和执行结果，修复代码问题"
-        elif mode == "explain":
-            task_desc = "对当前代码和执行结果进行详细解释"
-        else:
-            task_desc = "生成代码"
-        
-        prompt_parts.append(f"任务：{task_desc}")
-        logger.info(f"添加任务描述: {task_desc}")
-        
-        # 2. 用户意图
+        # 1. 用户意图 (User Intent)
+        prompt_parts.append("# 用户意图 (User Intent)")
         if intent:
-            prompt_parts.append(f"\n用户意图：\n{intent}")
-            logger.info(f"添加用户意图，长度: {len(intent)} 字符")
+            prompt_parts.append(intent)
+        else:
+            prompt_parts.append("（未提供具体意图）")
         
-        # 3. 环境变量（DataFrame）
+        # 2. 环境变量 (Current Data Context)
+        prompt_parts.append("\n# 环境变量 (Current Data Context)")
+        prompt_parts.append("以下是当前 Jupyter 环境中存在的关键变量及其结构（DataFrame形状、列名和类型等）。请在编写或修改代码时参考并优先使用这些变量。")
         if variables:
-            prompt_parts.append("\n环境变量（DataFrame）：")
             for var in variables:
                 prompt_parts.append(f"- 变量名: {var.get('name')}")
                 prompt_parts.append(f"  - 形状: {var.get('shape')}")
                 prompt_parts.append(f"  - 列名: {var.get('columns')}")
                 prompt_parts.append(f"  - 类型: {var.get('dtypes')}")
-            logger.info(f"添加 {len(variables)} 个环境变量")
+        else:
+            prompt_parts.append("（当前没有可用的环境变量）")
         
-        # 4. 当前代码
-        if source:
-            prompt_parts.append(f"\n当前代码：\n{source}")
-            logger.info(f"添加当前代码，长度: {len(source)} 字符")
+        # 3. 当前代码 (Code to be Fixed/Optimized)
+        prompt_parts.append("\n# 当前代码 (Code to be Fixed/Optimized)")
+        prompt_parts.append("请严格解析并处理下方 START 和 END 标记之间的完整 Python 代码。")
         
-        # 5. 执行结果/错误信息
-        if output:
-            prompt_parts.append(f"\n执行结果：\n{output}")
-            logger.info(f"添加执行结果，长度: {len(output)} 字符")
+        prompt_parts.append("\n### CODE START ###")
+        prompt_parts.append(source if source else "")
+        prompt_parts.append("### CODE END ###")
+        
+        # 4. 执行结果 (Execution Result)
+        prompt_parts.append("\n# 执行结果 (Execution Result)")
+        prompt_parts.append("请参考此处的输出，尤其是 Traceback 和错误信息。如果代码运行成功，请留空。")
+        
+        prompt_parts.append("\n### OUTPUT START ###")
+        prompt_parts.append(output if output else "")
+        prompt_parts.append("### OUTPUT END ###")
         
         final_prompt = "\n".join(prompt_parts)
         logger.info(f"提示词构造完成，总长度: {len(final_prompt)} 字符")
@@ -406,7 +332,7 @@ class AnalyzeDataFrameHandler(APIHandler):
             start_time = datetime.now()
             
             request_messages = [
-                {"role": "system", "content": "你是一个专业的数据分析助手，专门生成可在Jupyter Notebook中直接执行的Python数据分析代码。确保生成的代码符合Python规范，包含适当的中文注释，并且不包含任何markdown代码块标记（如```python）。"},
+                {"role": "system", "content": prompts.ANALYSIS_SYSTEM_MESSAGE},
                 {"role": "user", "content": prompt}
             ]
             
@@ -452,7 +378,7 @@ class AnalyzeDataFrameHandler(APIHandler):
         prompt_parts = []
         
         # 系统指令
-        system_instruction = "你是一个专业的数据分析助手，擅长生成可在Jupyter Notebook中直接执行的Python数据分析代码。"
+        system_instruction = prompts.ANALYSIS_SYSTEM_INSTRUCTION
         prompt_parts.append(system_instruction)
         logger.info(f"添加系统指令: {system_instruction}")
         
@@ -485,13 +411,7 @@ class AnalyzeDataFrameHandler(APIHandler):
             logger.info("未提供DataFrame元数据")
         
         # 添加特定指令
-        prompt_parts.append("\n要求：")
-        prompt_parts.append("1. 生成的Python代码必须能在Jupyter Notebook的代码单元格中直接执行")
-        prompt_parts.append("2. 包含适当的中文注释，解释关键步骤")
-        prompt_parts.append("3. 不要包含任何markdown代码块标记（如```python）")
-        prompt_parts.append("4. 代码应该是完整且独立的")
-        prompt_parts.append("5. 使用pandas库进行数据分析")
-        prompt_parts.append("6. 如果需要可视化，使用matplotlib或seaborn库")
+        prompt_parts.extend(prompts.ANALYSIS_REQUIREMENTS)
         
         logger.info("添加数据分析指令和要求")
         
