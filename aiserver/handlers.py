@@ -421,6 +421,13 @@ class AnalyzeDataFrameHandler(APIHandler):
         return final_prompt
 
 
+from .algorithm_prompts import ALGORITHM_PROMPTS
+
+class GetAlgorithmPromptsHandler(APIHandler):
+    # Removed @tornado.web.authenticated decorator to disable authentication
+    def get(self):
+        self.finish(json.dumps(ALGORITHM_PROMPTS, ensure_ascii=False))
+
 def setup_handlers(web_app):
     host_pattern = ".*$"
 
@@ -428,6 +435,7 @@ def setup_handlers(web_app):
     handlers = [
         (url_path_join(base_url, "aiserver", "get-example"), RouteHandler),
         (url_path_join(base_url, "aiserver", "generate"), GenerateHandler),
-        (url_path_join(base_url, "aiserver", "analyze-dataframe"), AnalyzeDataFrameHandler)
+        (url_path_join(base_url, "aiserver", "analyze-dataframe"), AnalyzeDataFrameHandler),
+        (url_path_join(base_url, "aiserver", "algorithm-prompts"), GetAlgorithmPromptsHandler)
     ]
     web_app.add_handlers(host_pattern, handlers)

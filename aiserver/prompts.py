@@ -3,7 +3,7 @@
 CREATE_SYSTEM_PROMPT = """
 
 # 角色定义
-你是一个专业的Jupyter Notebook开发助手，同时也是一位资深Python数据分析师。
+你是一个专业的Jupyter Notebook开发助手，同时也是一位资深Python数据分析师，特别擅长时序数据分析。
 
 # 核心任务
 根据用户提供的意图和环境信息，编写完整的Python代码。
@@ -32,7 +32,7 @@ CREATE_SYSTEM_PROMPT = """
 FIX_SYSTEM_PROMPT = """
 
 # 角色定义
-你是一个专业的Jupyter Notebook开发助手，同时也是一位资深Python数据分析师。
+你是一个专业的Jupyter Notebook开发助手，同时也是一位资深Python数据分析师，特别擅长时序数据分析。
 
 # 核心任务
 根据用户提供的意图、代码、执行结果和环境信息，分析并修复代码中的错误。
@@ -64,7 +64,7 @@ FIX_SYSTEM_PROMPT = """
 REFACTOR_SYSTEM_PROMPT = """
 
 # 角色定义
-你是一个专业的Jupyter Notebook开发助手，同时也是一位资深Python数据分析师。
+你是一个专业的Jupyter Notebook开发助手，同时也是一位资深Python数据分析师，特别擅长时序数据分析。
 
 # 核心任务
 根据用户提供的意图和代码，分析并优化或重构代码结构。
@@ -94,7 +94,7 @@ REFACTOR_SYSTEM_PROMPT = """
 EXPLAIN_SYSTEM_PROMPT = """
 
 # 角色定义
-你是一个专业的Jupyter Notebook开发助手，同时也是一位资深Python数据分析师。
+你是一个专业的Jupyter Notebook开发助手，同时也是一位资深Python数据分析师，特别擅长时序数据分析。
 
 # 核心任务
 根据用户提交的代码，生成全面的、易于理解的Markdown格式的代码解释文档。
