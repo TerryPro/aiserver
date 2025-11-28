@@ -365,6 +365,18 @@ class AnalyzeDataFrameHandler(APIHandler):
 
 
 from .algorithm_prompts import ALGORITHM_PROMPTS
+from . import algorithm_templates
+
+class GetFunctionLibraryHandler(APIHandler):
+    # Removed @tornado.web.authenticated decorator to disable authentication
+    def get(self):
+        try:
+            library = algorithm_templates.get_library_metadata()
+            self.finish(json.dumps(library, ensure_ascii=False))
+        except Exception as e:
+            logger.error(f"Failed to fetch function library: {e}")
+            self.set_status(500)
+            self.finish(json.dumps({"error": str(e)}))
 
 class GetAlgorithmPromptsHandler(APIHandler):
     # Removed @tornado.web.authenticated decorator to disable authentication
@@ -379,6 +391,7 @@ def setup_handlers(web_app):
         (url_path_join(base_url, "aiserver", "get-example"), RouteHandler),
         (url_path_join(base_url, "aiserver", "generate"), GenerateHandler),
         (url_path_join(base_url, "aiserver", "analyze-dataframe"), AnalyzeDataFrameHandler),
-        (url_path_join(base_url, "aiserver", "algorithm-prompts"), GetAlgorithmPromptsHandler)
+        (url_path_join(base_url, "aiserver", "algorithm-prompts"), GetAlgorithmPromptsHandler),
+        (url_path_join(base_url, "aiserver", "function-library"), GetFunctionLibraryHandler)
     ]
     web_app.add_handlers(host_pattern, handlers)
