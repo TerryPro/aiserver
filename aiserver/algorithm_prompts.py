@@ -94,5 +94,50 @@ ALGORITHM_PROMPTS = {
                 "prompt": "请在 {VAR_NAME} 中检测统计特性发生突变的时间点 (Change Point Detection)。可以使用 ruptures 库或基于滑动窗口的统计差异检测方法。"
             }
         ]
+    },
+    "trend_plot": {
+        "label": "趋势绘制",
+        "algorithms": [
+            {
+                "id": "trend_ma",
+                "name": "移动平均趋势",
+                "prompt": "请对{VAR_NAME} 绘制移动平均趋势线。先推断采样频率并将数据重采样到统一时间轴（如 '1S'），选择合理的窗口长度（例如 60 或 300 秒），使用 pandas 的 rolling().mean() 计算趋势线，并用 matplotlib 绘制原始曲线与趋势线，添加网格、图例与中文标签。若 {VAR_NAME} 为 DataFrame，请对数值列分别绘制。"
+            },
+            {
+                "id": "trend_ewma",
+                "name": "指数加权趋势",
+                "prompt": "请对{VAR_NAME} 绘制 EWMA（指数加权移动平均）趋势线。统一时间轴后，依据采样频率选择合适的 span（如 60 或 300），使用 pandas 的 ewm(span=...).mean() 计算趋势，并使用 matplotlib 将原始数据与 EWMA 趋势曲线叠加展示。"
+            },
+            {
+                "id": "trend_loess",
+                "name": "LOESS 趋势",
+                "prompt": "请对{VAR_NAME} 绘制 LOESS 平滑趋势。将时间序列统一到同一采样频率后，使用 statsmodels.nonparametric.smoothers_lowess.lowess 进行平滑并绘制趋势曲线；若缺少该库，可退化为 rolling().mean()。图表需包含中文标题、轴标签与图例。"
+            },
+            {
+                "id": "trend_polyfit",
+                "name": "多项式趋势拟合",
+                "prompt": "请对{VAR_NAME} 进行多项式趋势拟合并绘制趋势。将时间戳转换为连续时间序列（秒或索引），使用 numpy.polyfit 对 1~2 阶进行拟合，绘制拟合曲线与原始数据，并计算与输出拟合优度（R²）。"
+            },
+            {
+                "id": "trend_stl_trend",
+                "name": "STL 趋势分量",
+                "prompt": "请对{VAR_NAME} 执行 STL 分解并提取趋势分量。统一采样频率后，使用 statsmodels.tsa.seasonal.STL 提取趋势，绘制趋势曲线并与原始数据对比显示；根据卫星遥测的特性选择合适的季节周期（如日照周期）。"
+            },
+            {
+                "id": "trend_basic_stacked",
+                "name": "基础趋势绘制（分栏）",
+                "prompt": "请按照原始样式对 {VAR_NAME} 进行趋势绘制（分栏布局）。每个数值列单独占一行子图，统一时间轴。实现要点：\n1) 推断采样频率并重采样为统一时间轴（如 '1S'）；\n2) 仅对数值列绘图，数据量大时先降采样（如 1S/5S 或 rolling）；\n3) 使用 matplotlib，添加中文标题、轴标签、网格与图例；\n4) 若 {VAR_NAME} 为 Series，则直接在单个子图绘制。"
+            },
+            {
+                "id": "trend_basic_overlay",
+                "name": "基础趋势绘制（叠加）",
+                "prompt": "请按照原始样式对 {VAR_NAME} 进行趋势绘制（叠加布局）。所有数值列绘制在同一坐标轴上并区分图例，统一时间轴。实现要点：\n1) 推断采样频率并重采样为统一时间轴（如 '1S'）；\n2) 仅对数值列绘图，数据量大时先降采样（如 1S/5S 或 rolling）；\n3) 使用 matplotlib，添加中文标题、轴标签、网格与图例；\n4) 若 {VAR_NAME} 为 Series，则直接在单图叠加绘制（仅一条曲线）。"
+            },
+            {
+                "id": "trend_basic_grid",
+                "name": "基础趋势绘制（网格）",
+                "prompt": "请按照原始样式对 {VAR_NAME} 进行趋势绘制（网格布局）。根据列数量自动计算行列数形成子图网格（如 2xN 或近似方阵），统一时间轴。实现要点：\n1) 推断采样频率并重采样为统一时间轴（如 '1S'）；\n2) 仅对数值列绘图，数据量大时先降采样（如 1S/5S 或 rolling）；\n3) 使用 matplotlib，添加中文标题、轴标签、网格与图例；\n4) 若 {VAR_NAME} 为 Series，则在单个子图绘制。"
+            }
+        ]
     }
 }
