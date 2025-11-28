@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 from jupyter_server.base.handlers import APIHandler
 from jupyter_server.utils import url_path_join
 from deepseek import DeepSeekClient
-from . import prompts
+from . import system_prompts as prompts
+from .user_prompts import construct_user_prompt
 
 # 配置日志
 logging.basicConfig(
@@ -98,7 +99,7 @@ class GenerateHandler(APIHandler):
         
         # 构造系统提示词和用户提示词
         system_prompt = self.construct_system_prompt(options)
-        user_prompt = self.construct_user_prompt(language, source, context, intent, options, output, variables)
+        user_prompt = construct_user_prompt(language, source, context, intent, options, output, variables)
         
         logger.info(f"系统提示词长度: {len(system_prompt)} 字符")
         logger.info(f"完整系统提示词:\n{system_prompt}")
@@ -198,64 +199,6 @@ class GenerateHandler(APIHandler):
         logger.info(f"系统提示词构造完成，长度: {len(system_content)} 字符")
         return system_content
     
-    def construct_user_prompt(self, language, source, context, intent, options, output=None, variables=None):
-        """
-        构造用户提示词，包含具体任务和上下文数据。
-        
-        Args:
-            language: 编程语言
-            source: 当前代码
-            context: 上下文信息
-            intent: 用户意图
-            options: 选项字典
-            output: 代码执行输出
-            variables: 环境变量列表
-            
-        Returns:
-            str: 用户提示词内容
-        """
-        logger.info("开始构造用户提示词...")
-        prompt_parts = []
-        
-        # 1. 用户意图 (User Intent)
-        prompt_parts.append("# 用户意图 (User Intent)")
-        if intent:
-            prompt_parts.append(intent)
-        else:
-            prompt_parts.append("（未提供具体意图）")
-        
-        # 2. 环境变量 (Current Data Context)
-        prompt_parts.append("\n# 环境变量 (Current Data Context)")
-        prompt_parts.append("以下是当前 Jupyter 环境中存在的关键变量及其结构（DataFrame形状、列名和类型等）。请在编写或修改代码时参考并优先使用这些变量。")
-        if variables:
-            for var in variables:
-                prompt_parts.append(f"- 变量名: {var.get('name')}")
-                prompt_parts.append(f"  - 形状: {var.get('shape')}")
-                prompt_parts.append(f"  - 列名: {var.get('columns')}")
-                prompt_parts.append(f"  - 类型: {var.get('dtypes')}")
-        else:
-            prompt_parts.append("（当前没有可用的环境变量）")
-        
-        # 3. 当前代码 (Code to be Fixed/Optimized)
-        prompt_parts.append("\n# 当前代码 (Code to be Fixed/Optimized)")
-        prompt_parts.append("请严格解析并处理下方 START 和 END 标记之间的完整 Python 代码。")
-        
-        prompt_parts.append("\n### CODE START ###")
-        prompt_parts.append(source if source else "")
-        prompt_parts.append("### CODE END ###")
-        
-        # 4. 执行结果 (Execution Result)
-        prompt_parts.append("\n# 执行结果 (Execution Result)")
-        prompt_parts.append("请参考此处的输出，尤其是 Traceback 和错误信息。如果代码运行成功，请留空。")
-        
-        prompt_parts.append("\n### OUTPUT START ###")
-        prompt_parts.append(output if output else "")
-        prompt_parts.append("### OUTPUT END ###")
-        
-        final_prompt = "\n".join(prompt_parts)
-        logger.info(f"提示词构造完成，总长度: {len(final_prompt)} 字符")
-        
-        return final_prompt
 
 
 class AnalyzeDataFrameHandler(APIHandler):

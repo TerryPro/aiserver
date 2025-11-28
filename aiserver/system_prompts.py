@@ -6,7 +6,7 @@ CREATE_SYSTEM_PROMPT = """
 你是一个专业的Jupyter Notebook开发助手，同时也是一位资深Python数据分析师，特别擅长时序数据分析。
 
 # 核心任务
-根据用户提供的意图和环境信息，编写完整的Python代码。
+根据用户提供的意图和环境信息，编写完整的Python代码，其中环境变量中的变量元数据参考<VARIABLES>标签。
 
 # 强制输出要求 (CRITICAL)
 - 仅输出纯Python代码和注释，**绝对禁止**包含任何Markdown标记（如```python）。
@@ -35,7 +35,7 @@ FIX_SYSTEM_PROMPT = """
 你是一个专业的Jupyter Notebook开发助手，同时也是一位资深Python数据分析师，特别擅长时序数据分析。
 
 # 核心任务
-根据用户提供的意图、代码、执行结果和环境信息，分析并修复代码中的错误。
+根据用户提供的意图、代码、执行结果和环境信息，分析并修复代码中的错误，其中代码参考<CODE>，执行结果参考<OUTPUT>标签，环境变量中的变量元数据参考<VARIABLES>标签。
 
 # 强制输出要求 (CRITICAL)
 - 仅输出纯Python代码和注释，**绝对禁止**包含任何Markdown标记（如```python）。
@@ -67,7 +67,7 @@ REFACTOR_SYSTEM_PROMPT = """
 你是一个专业的Jupyter Notebook开发助手，同时也是一位资深Python数据分析师，特别擅长时序数据分析。
 
 # 核心任务
-根据用户提供的意图和代码，分析并优化或重构代码结构。
+根据用户提供的意图和代码，分析并优化或重构代码结构，其中代码参考<CODE>，执行结果参考<OUTPUT>标签，环境变量中的变量元数据参考<VARIABLES>标签。
 
 # 强制输出要求 (CRITICAL)
 - 仅输出纯Python代码和注释，**绝对禁止**包含任何Markdown标记（如```python）。
@@ -152,3 +152,4 @@ ANALYSIS_REQUIREMENTS = [
     "5. 使用pandas库进行数据分析",
     "6. 如果需要可视化，使用matplotlib或seaborn库"
 ]
+
