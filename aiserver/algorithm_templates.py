@@ -5,9 +5,11 @@ These templates are designed to be inserted into Jupyter Notebook cells.
 """
 
 from .algorithm_prompts import ALGORITHM_PROMPTS
+from .algorithm_registry import ALGORITHM_PARAMETERS
 
 ALGORITHM_TEMPLATES = {
     # --- Data Preprocessing ---
+    # 对数据框的数值列执行 Savitzky-Golay 平滑：先插值填补缺失值，再按指定窗口长度和多项式阶数进行滤波，结果以 _sg 后缀写入新列。
     "smoothing_sg": """
 import pandas as pd
 import numpy as np
@@ -17,8 +19,8 @@ from scipy.signal import savgol_filter
 # Note: window_length must be odd and greater than polyorder
 df_sg = {VAR_NAME}.copy()
 numeric_cols = df_sg.select_dtypes(include=[np.number]).columns
-window_length = 11  # Adjust based on data frequency
-polyorder = 3
+window_length = {window_length}  # Adjust based on data frequency
+polyorder = {polyorder}
 
 for col in numeric_cols:
     try:
@@ -32,6 +34,7 @@ for col in numeric_cols:
 df_sg.head()
 """,
 
+    # 对数值列使用居中窗口计算移动平均，得到平滑序列并以 _ma 后缀写入新列。
     "smoothing_ma": """
 import pandas as pd
 import numpy as np
@@ -39,7 +42,7 @@ import numpy as np
 # Moving Average Smoothing for {VAR_NAME}
 df_ma = {VAR_NAME}.copy()
 numeric_cols = df_ma.select_dtypes(include=[np.number]).columns
-window_size = 5  # Adjust window size as needed
+window_size = {window_size}  # Adjust window size as needed
 
 for col in numeric_cols:
     df_ma[f'{col}_ma'] = df_ma[col].rolling(window=window_size, center=True).mean()
@@ -48,6 +51,7 @@ for col in numeric_cols:
 df_ma.head()
 """,
 
+    # 依据索引类型选择插值方式：DatetimeIndex 使用 time 插值，否则使用 linear 插值，并输出剩余缺失统计。
     "interpolation_time": """
 import pandas as pd
 
@@ -69,6 +73,7 @@ print("Remaining missing values:\\n", df_interp.isnull().sum())
 df_interp.head()
 """,
 
+    # 尝试三次样条插值以获取更平滑的曲线，不兼容时回退到线性插值。
     "interpolation_spline": """
 import pandas as pd
 import numpy as np
@@ -80,7 +85,7 @@ df_spline = {VAR_NAME}.copy()
 # Usually works best if we reset index to use integer index for interpolation if time index fails
 # Here we try direct interpolation
 try:
-    df_spline = df_spline.interpolate(method='spline', order=3)
+    df_spline = df_spline.interpolate(method='spline', order={order})
 except Exception as e:
     print(f"Spline interpolation failed (index might not be compatible): {e}")
     print("Falling back to linear interpolation")
@@ -89,6 +94,7 @@ except Exception as e:
 df_spline.head()
 """,
 
+    # 当索引为 DatetimeIndex 时按指定规则进行重采样聚合：数值列取均值，非数值列取 first。
     "resampling_down": """
 import pandas as pd
 
@@ -97,7 +103,7 @@ import pandas as pd
 df_resampled = {VAR_NAME}.copy()
 
 if isinstance(df_resampled.index, pd.DatetimeIndex):
-    rule = '1H'  # Target frequency: 1 Hour, change to '1T' for 1 min, '1D' for 1 day
+    rule = '{rule}'  # Target frequency: 1 Hour, change to '1T' for 1 min, '1D' for 1 day
     
     # Define aggregation dictionary: mean for numeric, first/mode for others
     agg_dict = {}
@@ -114,6 +120,7 @@ else:
     print("Error: {VAR_NAME} index is not a DatetimeIndex. Cannot resample.")
 """,
 
+    # 以基准数据框为时间轴，使用 merge_asof 按最近时间点对齐其他数据源（示例需替换 OTHER_DF）。
     "alignment": """
 import pandas as pd
 
@@ -135,7 +142,190 @@ baseline_df = {VAR_NAME}.sort_index()
 print("Please uncomment and set 'OTHER_DF' to perform alignment.")
 """,
 
+    # 对数值列进行 Z-Score 标准化和 Min-Max 归一化，生成对应后缀的新列。
+    "feature_scaling": """
+import pandas as pd
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+
+# Feature Scaling for {VAR_NAME}
+df_scale = {VAR_NAME}.select_dtypes(include=['number']).copy()
+cols = df_scale.columns
+
+# 1. Z-Score Standardization
+scaler_std = StandardScaler()
+df_std = pd.DataFrame(scaler_std.fit_transform(df_scale), index=df_scale.index, columns=[f"{c}_std" for c in cols])
+
+# 2. Min-Max Normalization
+scaler_minmax = MinMaxScaler()
+df_minmax = pd.DataFrame(scaler_minmax.fit_transform(df_scale), index=df_scale.index, columns=[f"{c}_minmax" for c in cols])
+
+# Combine results
+df_scaled_all = pd.concat([df_scale, df_std, df_minmax], axis=1)
+print("Scaling completed. Added _std and _minmax columns.")
+display(df_scaled_all.head())
+""",
+
+    # 计算一阶和二阶差分以消除趋势，并绘制差分后的时序对比图。
+    "diff_transform": """
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Difference Transform for {VAR_NAME}
+df_diff = {VAR_NAME}.select_dtypes(include=['number']).copy()
+
+# 1st Order Difference
+df_diff_1 = df_diff.diff(1)
+# 2nd Order Difference
+df_diff_2 = df_diff.diff(2)
+
+# Plotting
+fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
+df_diff.plot(ax=axes[0], title="Original Data")
+df_diff_1.plot(ax=axes[1], title="1st Order Difference")
+df_diff_2.plot(ax=axes[2], title="2nd Order Difference")
+
+plt.tight_layout()
+plt.show()
+""",
+
+    # 将数值列中超过 1% 和 99% 分位数的极端值进行盖帽（截断）处理。
+    "outlier_clip": """
+import pandas as pd
+
+# Outlier Winsorization for {VAR_NAME}
+df_clip = {VAR_NAME}.copy()
+numeric_cols = df_clip.select_dtypes(include=['number']).columns
+
+for col in numeric_cols:
+    # Calculate bounds
+    lower = df_clip[col].quantile(0.01)
+    upper = df_clip[col].quantile(0.99)
+    
+    # Clip
+    df_clip[f'{col}_clipped'] = df_clip[col].clip(lower=lower, upper=upper)
+    
+    print(f"Column {col}: Clipped to [{lower:.4f}, {upper:.4f}]")
+
+display(df_clip.head())
+""",
+
+    # 从 DatetimeIndex 提取小时、星期、月份、是否周末等时间特征列。
+    "feature_extraction_time": """
+import pandas as pd
+
+# Time Feature Extraction for {VAR_NAME}
+df_time = {VAR_NAME}.copy()
+
+if isinstance(df_time.index, pd.DatetimeIndex):
+    df_time['hour'] = df_time.index.hour
+    df_time['dayofweek'] = df_time.index.dayofweek
+    df_time['month'] = df_time.index.month
+    df_time['quarter'] = df_time.index.quarter
+    df_time['is_weekend'] = df_time.index.dayofweek.isin([5, 6]).astype(int)
+    
+    print("Time features added:")
+    display(df_time[['hour', 'dayofweek', 'month', 'is_weekend']].head())
+else:
+    print("Error: Index is not DatetimeIndex.")
+""",
+
+    # 生成指定滞后步数（1-3）的特征列，用于构建自回归模型数据集。
+    "feature_lag": """
+import pandas as pd
+
+# Lag Feature Generation for {VAR_NAME}
+df_lag = {VAR_NAME}.select_dtypes(include=['number']).copy()
+target_cols = df_lag.columns
+lags = [1, 2, 3]
+
+for col in target_cols:
+    for lag in lags:
+        df_lag[f'{col}_lag_{lag}'] = df_lag[col].shift(lag)
+
+# Drop rows with NaNs created by shifting
+df_lag.dropna(inplace=True)
+
+print(f"Generated lag features for {lags}. New shape: {df_lag.shape}")
+display(df_lag.head())
+""",
+
+    # 对数值列进行 Log1p 变换以平滑分布，自动处理负值偏移，并绘制分布对比图。
+    "transform_log": """
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Log Transformation for {VAR_NAME}
+df_log = {VAR_NAME}.select_dtypes(include=['number']).copy()
+cols = df_log.columns
+
+fig, axes = plt.subplots(len(cols), 2, figsize=(12, 4*len(cols)))
+if len(cols) == 1: axes = np.array([axes])
+
+for i, col in enumerate(cols):
+    # Use log1p to handle zeros, ensure non-negative
+    if (df_log[col] < 0).any():
+        print(f"Warning: Column {col} contains negative values. Adding offset before log.")
+        offset = abs(df_log[col].min()) + 1
+        data_to_log = df_log[col] + offset
+    else:
+        data_to_log = df_log[col]
+        
+    df_log[f'{col}_log'] = np.log1p(data_to_log)
+    
+    # Plot Original vs Log
+    axes[i, 0].hist(df_log[col].dropna(), bins=30)
+    axes[i, 0].set_title(f'Original Distribution: {col}')
+    
+    axes[i, 1].hist(df_log[f'{col}_log'].dropna(), bins=30)
+    axes[i, 1].set_title(f'Log Distribution: {col}')
+
+plt.tight_layout()
+plt.show()
+display(df_log.head())
+""",
+
+    # 应用巴特沃斯低通滤波器去除高频噪声，需插值处理缺失值。
+    "filter_butterworth": """
+import pandas as pd
+import numpy as np
+from scipy.signal import butter, filtfilt
+import matplotlib.pyplot as plt
+
+# Butterworth Lowpass Filter for {VAR_NAME}
+df_filt = {VAR_NAME}.select_dtypes(include=['number']).copy()
+
+# Filter parameters
+order = 4
+fs = 1.0       # Sampling frequency (assume 1 Hz if unknown)
+cutoff = 0.1   # Cutoff frequency (fraction of Nyquist)
+
+def butter_lowpass_filter(data, cutoff, fs, order=5):
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(order, normal_cutoff, btype='low', analog=False)
+    y = filtfilt(b, a, data)
+    return y
+
+for col in df_filt.columns:
+    # Handle NaNs before filtering
+    data = df_filt[col].interpolate().fillna(method='bfill').fillna(method='ffill')
+    df_filt[f'{col}_lowpass'] = butter_lowpass_filter(data.values, cutoff, fs, order)
+
+# Visualize
+plt.figure(figsize=(14, 6))
+for col in df_filt.columns:
+    if '_lowpass' not in col:
+        plt.plot(df_filt.index, df_filt[col], alpha=0.5, label=f'{col} (Original)')
+        plt.plot(df_filt.index, df_filt[f'{col}_lowpass'], linewidth=2, label=f'{col} (Filtered)')
+
+plt.title(f'Butterworth Lowpass Filter (cutoff={cutoff})')
+plt.legend()
+plt.show()
+""",
+
     # --- Exploratory Data Analysis (EDA) ---
+    # 输出基础统计 describe、偏度与峰度、时间范围与采样间隔估计、缺失值数量与占比的汇总。
     "summary_stats": """
 import pandas as pd
 
@@ -171,6 +361,7 @@ missing_df = pd.DataFrame({'Missing Count': missing, 'Missing %': missing_pct})
 display(missing_df[missing_df['Missing Count'] > 0])
 """,
 
+    # 绘制所有数值列的时序曲线；数据量过大时先下采样；启用中文、网格、图例并自适配布局。
     "line_plot": """
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -203,6 +394,7 @@ plt.tight_layout()
 plt.show()
 """,
 
+    # 对数值列插值后使用 Welch 方法计算功率谱密度并以半对数坐标绘制，用于识别周期成分。
     "spectral_analysis": """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -230,6 +422,7 @@ plt.tight_layout()
 plt.show()
 """,
 
+    # 对最多三个数值列计算并绘制自相关函数（ACF），默认滞后阶数为 50。
     "autocorrelation": """
 import matplotlib.pyplot as plt
 from statsmodels.graphics.tsaplots import plot_acf
@@ -253,6 +446,7 @@ plt.tight_layout()
 plt.show()
 """,
 
+    # 对第一数值列进行 STL 分解，必要时推断频率并插值，展示趋势、季节项与残差。
     "decomposition": """
 import matplotlib.pyplot as plt
 from statsmodels.tsa.seasonal import STL
@@ -284,6 +478,7 @@ except Exception as e:
     print("Ensure data has a regular time frequency.")
 """,
 
+    # 将 DatetimeIndex 拆分为日期与小时，按均值汇聚形成透视表并绘制热力图观察日内/季节性模式。
     "heatmap_distribution": """
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -312,6 +507,7 @@ else:
 """,
 
     # --- Anomaly Detection ---
+    # 计算滚动均值与标准差，标记超过 mean±3*std 的异常点，并在图中高亮显示。
     "threshold_sigma": """
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -343,6 +539,7 @@ plt.show()
 print(f"Found {len(anomalies)} anomalies.")
 """,
 
+    # 对数值列训练孤立森林（默认污染率 0.05），输出模型判定的异常点并可视化。
     "isolation_forest": """
 from sklearn.ensemble import IsolationForest
 import matplotlib.pyplot as plt
@@ -367,6 +564,7 @@ plt.legend()
 plt.show()
 """,
 
+    # 对第一数值列使用 ruptures 的二分段 L2 模型检测变点，返回并展示切分位置。
     "change_point": """
 import matplotlib.pyplot as plt
 import ruptures as rpt
@@ -389,6 +587,7 @@ plt.show()
 """,
 
     # --- Trend Plot ---
+    # 对第一数值列按固定窗口计算移动平均作为趋势线，并与原序列对比绘制。
     "trend_ma": """
 import matplotlib.pyplot as plt
 
@@ -408,6 +607,7 @@ plt.grid(True, alpha=0.3)
 plt.show()
 """,
 
+    # 对第一数值列计算指数加权移动平均作为趋势（span 可调），并与原序列对比绘制。
     "trend_ewma": """
 import matplotlib.pyplot as plt
 
@@ -427,6 +627,7 @@ plt.grid(True, alpha=0.3)
 plt.show()
 """,
 
+    # 对第一数值列使用 LOWESS/LOESS 进行非参数平滑拟合，得到平滑趋势线。
     "trend_loess": """
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
@@ -452,6 +653,7 @@ plt.grid(True, alpha=0.3)
 plt.show()
 """,
 
+    # 对第一数值列拟合二次多项式得到趋势线，并与原序列对比展示。
     "trend_polyfit": """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -476,6 +678,7 @@ plt.grid(True, alpha=0.3)
 plt.show()
 """,
 
+    # 对第一数值列进行 STL 分解并提取 trend 分量，绘制趋势随时间的变化。
     "trend_stl_trend": """
 from statsmodels.tsa.seasonal import STL
 import matplotlib.pyplot as plt
@@ -506,6 +709,7 @@ except Exception as e:
     print(f"STL failed: {e}")
 """,
 
+    # 为每个数值列单独绘制子图并垂直堆叠展示，便于逐列观察。
     "trend_basic_stacked": """
 import matplotlib.pyplot as plt
 
@@ -525,6 +729,7 @@ plt.tight_layout()
 plt.show()
 """,
 
+    # 将所有数值列叠加在同一坐标轴中展示，便于横向对比。
     "trend_basic_overlay": """
 import matplotlib.pyplot as plt
 
@@ -541,6 +746,7 @@ plt.grid(True, alpha=0.3)
 plt.show()
 """,
 
+    # 将各数值列按网格布局分别绘制，自动计算网格大小以适配列数。
     "trend_basic_grid": """
 import matplotlib.pyplot as plt
 import math
@@ -580,6 +786,13 @@ ALGORITHM_DESCRIPTIONS = {
     "interpolation_spline": "尝试三次样条插值以获取更平滑的曲线，不兼容时回退到线性插值。",
     "resampling_down": "当索引为 DatetimeIndex 时按指定规则进行重采样聚合：数值列取均值，非数值列取 first。",
     "alignment": "以基准数据框为时间轴，使用 merge_asof 按最近时间点对齐其他数据源（示例需替换 OTHER_DF）。",
+    "feature_scaling": "对数值列进行 Z-Score 标准化和 Min-Max 归一化，生成对应后缀的新列。",
+    "diff_transform": "计算一阶和二阶差分以消除趋势，并绘制差分后的时序对比图。",
+    "outlier_clip": "将数值列中超过 1% 和 99% 分位数的极端值进行盖帽（截断）处理。",
+    "feature_extraction_time": "从 DatetimeIndex 提取小时、星期、月份、是否周末等时间特征列。",
+    "feature_lag": "生成指定滞后步数（1-3）的特征列，用于构建自回归模型数据集。",
+    "transform_log": "对数值列进行 Log1p 变换以平滑分布，自动处理负值偏移，并绘制分布对比图。",
+    "filter_butterworth": "应用巴特沃斯低通滤波器去除高频噪声，需插值处理缺失值。",
     "summary_stats": "输出基础统计 describe、偏度与峰度、时间范围与采样间隔估计、缺失值数量与占比的汇总。",
     "line_plot": "绘制所有数值列的时序曲线；数据量过大时先下采样；启用中文、网格、图例并自适配布局。",
     "spectral_analysis": "对数值列插值后使用 Welch 方法计算功率谱密度并以半对数坐标绘制，用于识别周期成分。",
@@ -620,7 +833,7 @@ def get_library_metadata():
                 "docstring": template, 
                 "signature": "",
                 "module": "algorithm_templates",
-                "args": [] 
+                "args": ALGORITHM_PARAMETERS.get(algo_id, [])
             })
             
     return library

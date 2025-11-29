@@ -37,6 +37,41 @@ ALGORITHM_PROMPTS = {
                 "id": "alignment",
                 "name": "多源数据对齐",
                 "prompt": "请以 {VAR_NAME} 为基准执行多源时间对齐。使用 pandas 的 merge_asof 方法，将其他数据对齐到该时间轴。"
+            },
+            {
+                "id": "feature_scaling",
+                "name": "数据标准化/归一化",
+                "prompt": "请对 {VAR_NAME} 进行特征缩放。提供 Z-Score 标准化和 Min-Max 归一化两种结果，便于后续模型训练。"
+            },
+            {
+                "id": "diff_transform",
+                "name": "差分变换",
+                "prompt": "请对 {VAR_NAME} 进行一阶和二阶差分处理，以消除趋势并使数据平稳，绘制差分后的时序图。"
+            },
+            {
+                "id": "outlier_clip",
+                "name": "离群值盖帽 (Winsorization)",
+                "prompt": "请对 {VAR_NAME} 进行离群值盖帽处理。将超出 1% 和 99% 分位数的值限制在边界范围内，以减少极端值的影响。"
+            },
+            {
+                "id": "feature_extraction_time",
+                "name": "时间特征提取",
+                "prompt": "请从 {VAR_NAME} 的时间索引中提取特征。生成‘小时’、‘星期几’、‘月份’、‘是否周末’等新列，用于机器学习模型输入。"
+            },
+            {
+                "id": "feature_lag",
+                "name": "滞后特征生成",
+                "prompt": "请对 {VAR_NAME} 生成滞后特征。创建滞后 1 至 3 个时间步的列（lag_1, lag_2, lag_3），用于自回归分析。"
+            },
+            {
+                "id": "transform_log",
+                "name": "对数变换",
+                "prompt": "请对 {VAR_NAME} 进行对数变换。使用 log1p 处理以稳定方差，并绘制变换前后的分布对比图。"
+            },
+            {
+                "id": "filter_butterworth",
+                "name": "巴特沃斯低通滤波",
+                "prompt": "请对 {VAR_NAME} 应用巴特沃斯低通滤波器。设置截止频率和阶数，去除高频噪声，保留主要趋势信号。"
             }
         ]
     },
