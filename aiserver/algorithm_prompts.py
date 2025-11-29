@@ -5,6 +5,16 @@ Contains structured prompts for various data analysis algorithms.
 """
 
 ALGORITHM_PROMPTS = {
+    "load_data": {
+        "label": "加载数据",
+        "algorithms": [
+            {
+                "id": "load_csv",
+                "name": "加载 CSV",
+                "prompt": "请加载 CSV 文件。使用 pandas.read_csv 读取指定路径的文件，并显示前几行数据。"
+            }
+        ]
+    },
     "data_preprocessing": {
         "label": "数据预处理",
         "algorithms": [

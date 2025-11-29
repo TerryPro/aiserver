@@ -3,6 +3,16 @@
 # Defines the parameters for each algorithm to enable UI generation
 
 ALGORITHM_PARAMETERS = {
+    "load_csv": [
+        {
+            "name": "filepath",
+            "type": "str",
+            "default": "dataset/data.csv",
+            "label": "File Path",
+            "description": "Path to the CSV file (relative to project root)",
+            "widget": "file-selector"  # Hint for UI to render file selector
+        }
+    ],
     "smoothing_sg": [
         {
             "name": "window_length",

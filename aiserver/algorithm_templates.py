@@ -8,6 +8,21 @@ from .algorithm_prompts import ALGORITHM_PROMPTS
 from .algorithm_registry import ALGORITHM_PARAMETERS
 
 ALGORITHM_TEMPLATES = {
+    # --- Data Loading ---
+    "load_csv": """
+import pandas as pd
+import os
+
+# Load CSV Data
+filepath = '{filepath}'
+if not os.path.exists(filepath):
+    print(f"Error: File not found at {{filepath}}")
+else:
+    {OUTPUT_VAR} = pd.read_csv(filepath)
+    print(f"Loaded {OUTPUT_VAR} with shape: {{{OUTPUT_VAR}.shape}}")
+    display({OUTPUT_VAR}.head())
+""",
+
     # --- Data Preprocessing ---
     # 对数据框的数值列执行 Savitzky-Golay 平滑：先插值填补缺失值，再按指定窗口长度和多项式阶数进行滤波，结果以 _sg 后缀写入新列。
     "smoothing_sg": """
@@ -17,21 +32,21 @@ from scipy.signal import savgol_filter
 
 # Savitzky-Golay Smoothing for {VAR_NAME}
 # Note: window_length must be odd and greater than polyorder
-df_sg = {VAR_NAME}.copy()
-numeric_cols = df_sg.select_dtypes(include=[np.number]).columns
+{OUTPUT_VAR} = {VAR_NAME}.copy()
+numeric_cols = {OUTPUT_VAR}.select_dtypes(include=[np.number]).columns
 window_length = {window_length}  # Adjust based on data frequency
 polyorder = {polyorder}
 
 for col in numeric_cols:
     try:
         # Handle missing values before smoothing
-        series = df_sg[col].interpolate(method='linear').fillna(method='bfill').fillna(method='ffill')
-        df_sg[f'{col}_sg'] = savgol_filter(series, window_length, polyorder)
+        series = {OUTPUT_VAR}[col].interpolate(method='linear').fillna(method='bfill').fillna(method='ffill')
+        {OUTPUT_VAR}[f'{col}_sg'] = savgol_filter(series, window_length, polyorder)
     except Exception as e:
         print(f"Could not smooth column {col}: {e}")
 
 # Display first few rows
-df_sg.head()
+{OUTPUT_VAR}.head()
 """,
 
     # 对数值列使用居中窗口计算移动平均，得到平滑序列并以 _ma 后缀写入新列。
@@ -40,15 +55,15 @@ import pandas as pd
 import numpy as np
 
 # Moving Average Smoothing for {VAR_NAME}
-df_ma = {VAR_NAME}.copy()
-numeric_cols = df_ma.select_dtypes(include=[np.number]).columns
+{OUTPUT_VAR} = {VAR_NAME}.copy()
+numeric_cols = {OUTPUT_VAR}.select_dtypes(include=[np.number]).columns
 window_size = {window_size}  # Adjust window size as needed
 
 for col in numeric_cols:
-    df_ma[f'{col}_ma'] = df_ma[col].rolling(window=window_size, center=True).mean()
+    {OUTPUT_VAR}[f'{col}_ma'] = {OUTPUT_VAR}[col].rolling(window=window_size, center=True).mean()
 
 # Display first few rows
-df_ma.head()
+{OUTPUT_VAR}.head()
 """,
 
     # 依据索引类型选择插值方式：DatetimeIndex 使用 time 插值，否则使用 linear 插值，并输出剩余缺失统计。
@@ -57,20 +72,20 @@ import pandas as pd
 
 # Time-weighted Interpolation for {VAR_NAME}
 # Requires a DatetimeIndex for 'time' method
-df_interp = {VAR_NAME}.copy()
+{OUTPUT_VAR} = {VAR_NAME}.copy()
 
 # Ensure index is datetime if possible, otherwise use index
-if not isinstance(df_interp.index, pd.DatetimeIndex):
+if not isinstance({OUTPUT_VAR}.index, pd.DatetimeIndex):
     print("Warning: Index is not DatetimeIndex. Using linear interpolation instead of time-weighted.")
     method = 'linear'
 else:
     method = 'time'
 
-df_interp = df_interp.interpolate(method=method)
+{OUTPUT_VAR} = {OUTPUT_VAR}.interpolate(method=method)
 
 # Check remaining missing values
-print("Remaining missing values:\\n", df_interp.isnull().sum())
-df_interp.head()
+print("Remaining missing values:\\n", {OUTPUT_VAR}.isnull().sum())
+{OUTPUT_VAR}.head()
 """,
 
     # 尝试三次样条插值以获取更平滑的曲线，不兼容时回退到线性插值。
@@ -79,19 +94,19 @@ import pandas as pd
 import numpy as np
 
 # Spline Interpolation for {VAR_NAME}
-df_spline = {VAR_NAME}.copy()
+{OUTPUT_VAR} = {VAR_NAME}.copy()
 
 # Requires numeric index (or datetime converted to numeric) for spline
 # Usually works best if we reset index to use integer index for interpolation if time index fails
 # Here we try direct interpolation
 try:
-    df_spline = df_spline.interpolate(method='spline', order={order})
+    {OUTPUT_VAR} = {OUTPUT_VAR}.interpolate(method='spline', order={order})
 except Exception as e:
     print(f"Spline interpolation failed (index might not be compatible): {e}")
     print("Falling back to linear interpolation")
-    df_spline = df_spline.interpolate(method='linear')
+    {OUTPUT_VAR} = {OUTPUT_VAR}.interpolate(method='linear')
 
-df_spline.head()
+{OUTPUT_VAR}.head()
 """,
 
     # 当索引为 DatetimeIndex 时按指定规则进行重采样聚合：数值列取均值，非数值列取 first。
@@ -100,22 +115,22 @@ import pandas as pd
 
 # Downsampling (Aggregation) for {VAR_NAME}
 # Requires DatetimeIndex
-df_resampled = {VAR_NAME}.copy()
+{OUTPUT_VAR} = {VAR_NAME}.copy()
 
-if isinstance(df_resampled.index, pd.DatetimeIndex):
+if isinstance({OUTPUT_VAR}.index, pd.DatetimeIndex):
     rule = '{rule}'  # Target frequency: 1 Hour, change to '1T' for 1 min, '1D' for 1 day
     
     # Define aggregation dictionary: mean for numeric, first/mode for others
     agg_dict = {}
-    for col in df_resampled.columns:
-        if pd.api.types.is_numeric_dtype(df_resampled[col]):
+    for col in {OUTPUT_VAR}.columns:
+        if pd.api.types.is_numeric_dtype({OUTPUT_VAR}[col]):
             agg_dict[col] = 'mean'
         else:
             agg_dict[col] = 'first'
             
-    df_resampled = df_resampled.resample(rule).agg(agg_dict)
-    print(f"Resampled to {rule} frequency. New shape: {df_resampled.shape}")
-    display(df_resampled.head())
+    {OUTPUT_VAR} = {OUTPUT_VAR}.resample(rule).agg(agg_dict)
+    print(f"Resampled to {rule} frequency. New shape: {{{OUTPUT_VAR}.shape}}")
+    display({OUTPUT_VAR}.head())
 else:
     print("Error: {VAR_NAME} index is not a DatetimeIndex. Cannot resample.")
 """,
@@ -135,10 +150,10 @@ baseline_df = {VAR_NAME}.sort_index()
 # other_df = OTHER_DF.sort_index()
 
 # Using merge_asof (requires sorted DatetimeIndex)
-# df_aligned = pd.merge_asof(baseline_df, other_df, left_index=True, right_index=True, direction='nearest')
+# {OUTPUT_VAR} = pd.merge_asof(baseline_df, other_df, left_index=True, right_index=True, direction='nearest')
 
-# print("Aligned DataFrame shape:", df_aligned.shape)
-# df_aligned.head()
+# print("Aligned DataFrame shape:", {OUTPUT_VAR}.shape)
+# {OUTPUT_VAR}.head()
 print("Please uncomment and set 'OTHER_DF' to perform alignment.")
 """,
 
@@ -148,21 +163,21 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 # Feature Scaling for {VAR_NAME}
-df_scale = {VAR_NAME}.select_dtypes(include=['number']).copy()
-cols = df_scale.columns
+{OUTPUT_VAR} = {VAR_NAME}.select_dtypes(include=['number']).copy()
+cols = {OUTPUT_VAR}.columns
 
 # 1. Z-Score Standardization
 scaler_std = StandardScaler()
-df_std = pd.DataFrame(scaler_std.fit_transform(df_scale), index=df_scale.index, columns=[f"{c}_std" for c in cols])
+df_std = pd.DataFrame(scaler_std.fit_transform({OUTPUT_VAR}), index={OUTPUT_VAR}.index, columns=[f"{c}_std" for c in cols])
 
 # 2. Min-Max Normalization
 scaler_minmax = MinMaxScaler()
-df_minmax = pd.DataFrame(scaler_minmax.fit_transform(df_scale), index=df_scale.index, columns=[f"{c}_minmax" for c in cols])
+df_minmax = pd.DataFrame(scaler_minmax.fit_transform({OUTPUT_VAR}), index={OUTPUT_VAR}.index, columns=[f"{c}_minmax" for c in cols])
 
 # Combine results
-df_scaled_all = pd.concat([df_scale, df_std, df_minmax], axis=1)
+{OUTPUT_VAR} = pd.concat([{OUTPUT_VAR}, df_std, df_minmax], axis=1)
 print("Scaling completed. Added _std and _minmax columns.")
-display(df_scaled_all.head())
+display({OUTPUT_VAR}.head())
 """,
 
     # 计算一阶和二阶差分以消除趋势，并绘制差分后的时序对比图。
@@ -171,16 +186,16 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Difference Transform for {VAR_NAME}
-df_diff = {VAR_NAME}.select_dtypes(include=['number']).copy()
+{OUTPUT_VAR} = {VAR_NAME}.select_dtypes(include=['number']).copy()
 
 # 1st Order Difference
-df_diff_1 = df_diff.diff(1)
+df_diff_1 = {OUTPUT_VAR}.diff(1)
 # 2nd Order Difference
-df_diff_2 = df_diff.diff(2)
+df_diff_2 = {OUTPUT_VAR}.diff(2)
 
 # Plotting
 fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
-df_diff.plot(ax=axes[0], title="Original Data")
+{OUTPUT_VAR}.plot(ax=axes[0], title="Original Data")
 df_diff_1.plot(ax=axes[1], title="1st Order Difference")
 df_diff_2.plot(ax=axes[2], title="2nd Order Difference")
 
@@ -193,20 +208,20 @@ plt.show()
 import pandas as pd
 
 # Outlier Winsorization for {VAR_NAME}
-df_clip = {VAR_NAME}.copy()
-numeric_cols = df_clip.select_dtypes(include=['number']).columns
+{OUTPUT_VAR} = {VAR_NAME}.copy()
+numeric_cols = {OUTPUT_VAR}.select_dtypes(include=['number']).columns
 
 for col in numeric_cols:
     # Calculate bounds
-    lower = df_clip[col].quantile(0.01)
-    upper = df_clip[col].quantile(0.99)
+    lower = {OUTPUT_VAR}[col].quantile(0.01)
+    upper = {OUTPUT_VAR}[col].quantile(0.99)
     
     # Clip
-    df_clip[f'{col}_clipped'] = df_clip[col].clip(lower=lower, upper=upper)
+    {OUTPUT_VAR}[f'{col}_clipped'] = {OUTPUT_VAR}[col].clip(lower=lower, upper=upper)
     
     print(f"Column {col}: Clipped to [{lower:.4f}, {upper:.4f}]")
 
-display(df_clip.head())
+display({OUTPUT_VAR}.head())
 """,
 
     # 从 DatetimeIndex 提取小时、星期、月份、是否周末等时间特征列。
@@ -214,17 +229,17 @@ display(df_clip.head())
 import pandas as pd
 
 # Time Feature Extraction for {VAR_NAME}
-df_time = {VAR_NAME}.copy()
+{OUTPUT_VAR} = {VAR_NAME}.copy()
 
-if isinstance(df_time.index, pd.DatetimeIndex):
-    df_time['hour'] = df_time.index.hour
-    df_time['dayofweek'] = df_time.index.dayofweek
-    df_time['month'] = df_time.index.month
-    df_time['quarter'] = df_time.index.quarter
-    df_time['is_weekend'] = df_time.index.dayofweek.isin([5, 6]).astype(int)
+if isinstance({OUTPUT_VAR}.index, pd.DatetimeIndex):
+    {OUTPUT_VAR}['hour'] = {OUTPUT_VAR}.index.hour
+    {OUTPUT_VAR}['dayofweek'] = {OUTPUT_VAR}.index.dayofweek
+    {OUTPUT_VAR}['month'] = {OUTPUT_VAR}.index.month
+    {OUTPUT_VAR}['quarter'] = {OUTPUT_VAR}.index.quarter
+    {OUTPUT_VAR}['is_weekend'] = {OUTPUT_VAR}.index.dayofweek.isin([5, 6]).astype(int)
     
     print("Time features added:")
-    display(df_time[['hour', 'dayofweek', 'month', 'is_weekend']].head())
+    display({OUTPUT_VAR}[['hour', 'dayofweek', 'month', 'is_weekend']].head())
 else:
     print("Error: Index is not DatetimeIndex.")
 """,
@@ -234,19 +249,19 @@ else:
 import pandas as pd
 
 # Lag Feature Generation for {VAR_NAME}
-df_lag = {VAR_NAME}.select_dtypes(include=['number']).copy()
-target_cols = df_lag.columns
+{OUTPUT_VAR} = {VAR_NAME}.select_dtypes(include=['number']).copy()
+target_cols = {OUTPUT_VAR}.columns
 lags = [1, 2, 3]
 
 for col in target_cols:
     for lag in lags:
-        df_lag[f'{col}_lag_{lag}'] = df_lag[col].shift(lag)
+        {OUTPUT_VAR}[f'{col}_lag_{lag}'] = {OUTPUT_VAR}[col].shift(lag)
 
 # Drop rows with NaNs created by shifting
-df_lag.dropna(inplace=True)
+{OUTPUT_VAR}.dropna(inplace=True)
 
-print(f"Generated lag features for {lags}. New shape: {df_lag.shape}")
-display(df_lag.head())
+print(f"Generated lag features for {lags}. New shape: {{{OUTPUT_VAR}.shape}}")
+display({OUTPUT_VAR}.head())
 """,
 
     # 对数值列进行 Log1p 变换以平滑分布，自动处理负值偏移，并绘制分布对比图。
@@ -256,33 +271,33 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Log Transformation for {VAR_NAME}
-df_log = {VAR_NAME}.select_dtypes(include=['number']).copy()
-cols = df_log.columns
+{OUTPUT_VAR} = {VAR_NAME}.select_dtypes(include=['number']).copy()
+cols = {OUTPUT_VAR}.columns
 
 fig, axes = plt.subplots(len(cols), 2, figsize=(12, 4*len(cols)))
 if len(cols) == 1: axes = np.array([axes])
 
 for i, col in enumerate(cols):
     # Use log1p to handle zeros, ensure non-negative
-    if (df_log[col] < 0).any():
+    if ({OUTPUT_VAR}[col] < 0).any():
         print(f"Warning: Column {col} contains negative values. Adding offset before log.")
-        offset = abs(df_log[col].min()) + 1
-        data_to_log = df_log[col] + offset
+        offset = abs({OUTPUT_VAR}[col].min()) + 1
+        data_to_log = {OUTPUT_VAR}[col] + offset
     else:
-        data_to_log = df_log[col]
+        data_to_log = {OUTPUT_VAR}[col]
         
-    df_log[f'{col}_log'] = np.log1p(data_to_log)
+    {OUTPUT_VAR}[f'{col}_log'] = np.log1p(data_to_log)
     
     # Plot Original vs Log
-    axes[i, 0].hist(df_log[col].dropna(), bins=30)
+    axes[i, 0].hist({OUTPUT_VAR}[col].dropna(), bins=30)
     axes[i, 0].set_title(f'Original Distribution: {col}')
     
-    axes[i, 1].hist(df_log[f'{col}_log'].dropna(), bins=30)
+    axes[i, 1].hist({OUTPUT_VAR}[f'{col}_log'].dropna(), bins=30)
     axes[i, 1].set_title(f'Log Distribution: {col}')
 
 plt.tight_layout()
 plt.show()
-display(df_log.head())
+display({OUTPUT_VAR}.head())
 """,
 
     # 应用巴特沃斯低通滤波器去除高频噪声，需插值处理缺失值。
@@ -293,7 +308,7 @@ from scipy.signal import butter, filtfilt
 import matplotlib.pyplot as plt
 
 # Butterworth Lowpass Filter for {VAR_NAME}
-df_filt = {VAR_NAME}.select_dtypes(include=['number']).copy()
+{OUTPUT_VAR} = {VAR_NAME}.select_dtypes(include=['number']).copy()
 
 # Filter parameters
 order = 4
@@ -307,17 +322,17 @@ def butter_lowpass_filter(data, cutoff, fs, order=5):
     y = filtfilt(b, a, data)
     return y
 
-for col in df_filt.columns:
+for col in {OUTPUT_VAR}.columns:
     # Handle NaNs before filtering
-    data = df_filt[col].interpolate().fillna(method='bfill').fillna(method='ffill')
-    df_filt[f'{col}_lowpass'] = butter_lowpass_filter(data.values, cutoff, fs, order)
+    data = {OUTPUT_VAR}[col].interpolate().fillna(method='bfill').fillna(method='ffill')
+    {OUTPUT_VAR}[f'{col}_lowpass'] = butter_lowpass_filter(data.values, cutoff, fs, order)
 
 # Visualize
 plt.figure(figsize=(14, 6))
-for col in df_filt.columns:
+for col in {OUTPUT_VAR}.columns:
     if '_lowpass' not in col:
-        plt.plot(df_filt.index, df_filt[col], alpha=0.5, label=f'{col} (Original)')
-        plt.plot(df_filt.index, df_filt[f'{col}_lowpass'], linewidth=2, label=f'{col} (Filtered)')
+        plt.plot({OUTPUT_VAR}.index, {OUTPUT_VAR}[col], alpha=0.5, label=f'{col} (Original)')
+        plt.plot({OUTPUT_VAR}.index, {OUTPUT_VAR}[f'{col}_lowpass'], linewidth=2, label=f'{col} (Filtered)')
 
 plt.title(f'Butterworth Lowpass Filter (cutoff={cutoff})')
 plt.legend()
@@ -780,6 +795,7 @@ plt.show()
 CLEAN_TEMPLATES = {k: v.lstrip('\n') for k, v in ALGORITHM_TEMPLATES.items()}
 
 ALGORITHM_DESCRIPTIONS = {
+    "load_csv": "加载 CSV 文件并显示前 5 行预览。支持自动识别列类型。",
     "smoothing_sg": "对数据框的数值列执行 Savitzky-Golay 平滑：先插值填补缺失值，再按指定窗口长度和多项式阶数进行滤波，结果以 _sg 后缀写入新列。",
     "smoothing_ma": "对数值列使用居中窗口计算移动平均，得到平滑序列并以 _ma 后缀写入新列。",
     "interpolation_time": "依据索引类型选择插值方式：DatetimeIndex 使用 time 插值，否则使用 linear 插值，并输出剩余缺失统计。",
@@ -823,12 +839,31 @@ def get_library_metadata():
             template = CLEAN_TEMPLATES.get(algo_id, f"# Template for {algo['name']} not found.")
             description = ALGORITHM_DESCRIPTIONS.get(algo_id, "暂无实现说明")
             
+            # Determine ports based on category or specific ID
+            inputs = []
+            outputs = []
+            
+            if cat_label == "加载数据":
+                inputs = []
+                outputs = [{"name": "df_out", "type": "DataFrame"}]
+            elif cat_label in ["数据预处理", "异常检测"]:
+                inputs = [{"name": "df_in", "type": "DataFrame"}]
+                outputs = [{"name": "df_out", "type": "DataFrame"}]
+            elif cat_label in ["探索式分析", "趋势绘制"]:
+                inputs = [{"name": "df_in", "type": "DataFrame"}]
+                outputs = [] # Visualization nodes typically don't output a dataframe to next node in this simple model
+                # But some EDA like summary_stats might. For now let's assume they are sinks or visualizers.
+                if algo_id == "summary_stats":
+                     outputs = [{"name": "df_out", "type": "DataFrame"}]
+            
             library[cat_label].append({
                 "id": algo_id,
                 "name": algo["name"],
                 "description": description,
                 "category": cat_label,
                 "template": template,
+                "inputs": inputs,
+                "outputs": outputs,
                 # Keep backward compatibility fields if needed, or dummy them
                 "docstring": template, 
                 "signature": "",
