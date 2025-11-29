@@ -119,5 +119,22 @@ ALGORITHM_PARAMETERS = {
             "max": 0.5,
             "step": 0.01
         }
+    ],
+    "plot_custom": [
+        {
+            "name": "plot_type",
+            "type": "str",
+            "default": "line",
+            "label": "Plot Type",
+            "options": ["line", "bar", "scatter"],
+            "description": "Type of the plot"
+        },
+        {
+            "name": "column",
+            "type": "str",
+            "default": "",
+            "label": "Column",
+            "description": "Column to plot (for Y axis)"
+        }
     ]
 }

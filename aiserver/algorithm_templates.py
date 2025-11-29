@@ -23,6 +23,19 @@ else:
     display({OUTPUT_VAR}.head())
 """,
 
+    # --- Visualization ---
+    "plot_custom": """
+import matplotlib.pyplot as plt
+
+# Generic Plot
+# Plot type: {plot_type}, Column: {column}
+if '{column}':
+    {VAR_NAME}.plot(kind='{plot_type}', y='{column}')
+else:
+    {VAR_NAME}.plot(kind='{plot_type}')
+plt.show()
+""",
+
     # --- Data Preprocessing ---
     # 对数据框的数值列执行 Savitzky-Golay 平滑：先插值填补缺失值，再按指定窗口长度和多项式阶数进行滤波，结果以 _sg 后缀写入新列。
     "smoothing_sg": """
@@ -856,6 +869,16 @@ def get_library_metadata():
                 if algo_id == "summary_stats":
                      outputs = [{"name": "df_out", "type": "DataFrame"}]
             
+            # Determine nodeType (UI Component configuration)
+            # Default to 'generic'
+            node_type = "generic"
+            
+            # Configuration for custom nodes
+            if algo_id == "load_csv":
+                node_type = "csv_loader"
+            elif algo_id == "plot_custom":
+                node_type = "plot"
+            
             library[cat_label].append({
                 "id": algo_id,
                 "name": algo["name"],
@@ -864,11 +887,16 @@ def get_library_metadata():
                 "template": template,
                 "inputs": inputs,
                 "outputs": outputs,
+                "nodeType": node_type,  # Frontend configuration
                 # Keep backward compatibility fields if needed, or dummy them
                 "docstring": template, 
                 "signature": "",
                 "module": "algorithm_templates",
                 "args": ALGORITHM_PARAMETERS.get(algo_id, [])
             })
+    
+    # Inject custom 'Plot' node if not present in standard library
+    # This corresponds to the frontend's PlotNode
+    # Logic moved to standard registry
             
     return library
