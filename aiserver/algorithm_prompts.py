@@ -6,7 +6,7 @@ Contains structured prompts for various data analysis algorithms.
 
 ALGORITHM_PROMPTS = {
     "load_data": {
-        "label": "加载数据",
+        "label": "输入输出",
         "algorithms": [
             {
                 "id": "load_csv",
@@ -17,6 +17,71 @@ ALGORITHM_PROMPTS = {
                 "id": "import_variable",
                 "name": "引入变量",
                 "prompt": "请引入已存在的 DataFrame 变量 {variable_name}。创建其副本或引用，以便后续分析使用。"
+            },
+            {
+                "id": "export_data",
+                "name": "引出变量",
+                "prompt": "请将 {VAR_NAME} 引出到全局环境。变量名为 {global_name}。"
+            }
+        ]
+    },
+    "data_operation": {
+        "label": "数据操作",
+        "algorithms": [
+            {
+                "id": "select_columns",
+                "name": "选择列",
+                "prompt": "请从 {VAR_NAME} 中选择指定的列 {columns}，生成新的 DataFrame。"
+            },
+            {
+                "id": "filter_rows",
+                "name": "筛选行",
+                "prompt": "请对 {VAR_NAME} 进行行筛选。根据条件 {condition} 筛选数据（例如 'age > 18'）。"
+            },
+            {
+                "id": "sort_values",
+                "name": "排序",
+                "prompt": "请对 {VAR_NAME} 进行排序。根据列 {by} 进行 {ascending} 排序。"
+            },
+            {
+                "id": "groupby_agg",
+                "name": "分组聚合",
+                "prompt": "请对 {VAR_NAME} 进行分组聚合。按 {by} 分组，并对 {agg_dict} 执行聚合操作。"
+            },
+            {
+                "id": "pivot_table",
+                "name": "透视表",
+                "prompt": "请对 {VAR_NAME} 创建透视表。索引={index}, 列={columns}, 值={values}, 聚合函数={aggfunc}。"
+            },
+            {
+                "id": "concat_dfs",
+                "name": "数据连接 (Concat)",
+                "prompt": "请连接两个 DataFrame {df1} 和 {df2}。沿轴 {axis} 进行连接。"
+            },
+            {
+                "id": "rename_columns",
+                "name": "重命名列",
+                "prompt": "请对 {VAR_NAME} 的列进行重命名。使用映射关系 {columns_map}。"
+            },
+            {
+                "id": "drop_duplicates",
+                "name": "去重",
+                "prompt": "请对 {VAR_NAME} 去除重复行。基于列 {subset} 判断重复，保留 {keep}。"
+            },
+            {
+                "id": "fill_na",
+                "name": "填充缺失值",
+                "prompt": "请对 {VAR_NAME} 填充缺失值。使用值 {value} 或方法 {method} 进行填充。"
+            },
+            {
+                "id": "astype",
+                "name": "类型转换",
+                "prompt": "请对 {VAR_NAME} 的列进行类型转换。转换规则为 {dtype_map}。"
+            },
+            {
+                "id": "apply_func",
+                "name": "自定义函数 (Apply)",
+                "prompt": "请对 {VAR_NAME} 应用自定义函数。对 {axis} 轴应用函数 {func_code}。"
             }
         ]
     },

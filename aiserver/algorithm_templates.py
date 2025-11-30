@@ -44,6 +44,17 @@ ALGORITHM_IMPORTS = {
     "train_test_split": ["from sklearn.model_selection import train_test_split", "import pandas as pd"],
     "import_variable": ["import pandas as pd"],
     "trend_plot": ["import matplotlib.pyplot as plt"],
+    "select_columns": ["import pandas as pd"],
+    "filter_rows": ["import pandas as pd"],
+    "sort_values": ["import pandas as pd"],
+    "groupby_agg": ["import pandas as pd", "import numpy as np"],
+    "pivot_table": ["import pandas as pd", "import numpy as np"],
+    "concat_dfs": ["import pandas as pd"],
+    "rename_columns": ["import pandas as pd"],
+    "drop_duplicates": ["import pandas as pd"],
+    "fill_na": ["import pandas as pd", "import numpy as np"],
+    "astype": ["import pandas as pd"],
+    "apply_func": ["import pandas as pd", "import numpy as np"],
 }
 
 ALGORITHM_TEMPLATES = {
@@ -52,10 +63,10 @@ ALGORITHM_TEMPLATES = {
 # Load CSV Data
 filepath = '{filepath}'
 if not os.path.exists(filepath):
-    print(f"Error: File not found at {{filepath}}")
+    print(f"Error: File not found at {filepath}")
 else:
     {OUTPUT_VAR} = pd.read_csv(filepath)
-    print(f"Loaded {OUTPUT_VAR} with shape: {{{OUTPUT_VAR}.shape}}")
+    print(f"Loaded {OUTPUT_VAR} with shape: {{OUTPUT_VAR}.shape}")
     display({OUTPUT_VAR}.head())
 """,
 
@@ -64,14 +75,29 @@ else:
 # Source: {variable_name}
 # Output: {OUTPUT_VAR}
 
+{OUTPUT_VAR} = None
 try:
-    if '{variable_name}' not in locals():
-        print(f"Error: Variable '{{variable_name}}' not found in current session.")
+    # Check in globals() because locals() inside a method won't find notebook global variables
+    if '{variable_name}' not in globals():
+        print(f"Error: Variable '{variable_name}' not found in global scope.")
     else:
         # Create a copy to avoid modifying the original variable accidentally
-        {OUTPUT_VAR} = {variable_name}.copy()
-        print(f"Imported '{{variable_name}}' as '{OUTPUT_VAR}' with shape: {{{OUTPUT_VAR}.shape}}")
-        display({OUTPUT_VAR}.head())
+        # We must access the variable via globals()['name'] or directly if we could eval it, 
+        # but since we are inside a function, simple reference might fail if not passed in.
+        # However, in Python, reading a global variable inside a function works if not shadowed.
+        # But 'if name in globals()' is the check.
+        
+        source_var = globals()['{variable_name}']
+        if hasattr(source_var, 'copy'):
+            {OUTPUT_VAR} = source_var.copy()
+        else:
+            {OUTPUT_VAR} = source_var # Shallow copy/ref if copy() not available
+            
+        print(f"Imported '{variable_name}' as '{OUTPUT_VAR}'")
+        if hasattr({OUTPUT_VAR}, 'shape'):
+             print(f"Shape: {{{OUTPUT_VAR}.shape}}")
+        if hasattr({OUTPUT_VAR}, 'head'):
+             display({OUTPUT_VAR}.head())
 except Exception as e:
     print(f"Import failed: {e}")
 """,
@@ -110,28 +136,35 @@ try:
         try:
             x_data = pd.to_datetime({VAR_NAME}[x_col])
         except Exception:
-            print(f"Warning: Could not convert column '{{x_col}}' to datetime. Using original values.")
+            print(f"Warning: Could not convert column '{x_col}' to datetime. Using original values.")
             x_data = {VAR_NAME}[x_col]
     else:
         x_data = {VAR_NAME}.index
         if x_col:
-            print(f"Warning: X column '{{x_col}}' not found, using index.")
+            print(f"Warning: X column '{x_col}' not found, using index.")
 
     # Parse Y columns
+    y_cols = []
     if y_cols_str:
-        y_cols = [c.strip() for c in y_cols_str.split(',') if c.strip()]
-    else:
-        y_cols = []
+        # Handle list string representation like "['a', 'b']" or "[]"
+        s = y_cols_str.strip()
+        if s.startswith('[') and s.endswith(']'):
+            s = s[1:-1]
+        y_cols = [c.strip().strip("'").strip('"') for c in s.split(',') if c.strip()]
 
     if not y_cols:
-        # If no Y columns specified, plot all numeric columns
+        # If empty (or parsed as empty), fallback to numeric columns only
         y_cols = {VAR_NAME}.select_dtypes(include=['number']).columns.tolist()
+    
+    # Remove x_col from y_cols if present to avoid plotting time/index on Y-axis
+    if x_col and x_col in y_cols:
+        y_cols.remove(x_col)
 
     for col in y_cols:
         if col in {VAR_NAME}.columns:
             plt.plot(x_data, {VAR_NAME}[col], label=col)
         else:
-            print(f"Warning: Y column '{{col}}' not found.")
+            print(f"Warning: Y column '{col}' not found.")
 
     # Support Chinese characters in title and labels if needed
     plt.rcParams['font.sans-serif'] = ['SimHei'] # Use SimHei for Chinese
@@ -166,7 +199,7 @@ try:
         else:
             {merged} = pd.merge({left}, {right}, how='{how}', on=on_col)
             
-        print(f"Merged shape: {{{merged}.shape}}")
+        print(f"Merged shape: {{merged}.shape}")
         display({merged}.head())
 except Exception as e:
     print(f"Merge failed: {e}")
@@ -180,7 +213,7 @@ except Exception as e:
 try:
     target = '{target_column}'
     if target not in {data}.columns:
-        print(f"Error: Target column '{{target}}' not found in DataFrame.")
+        print(f"Error: Target column '{target}' not found in DataFrame.")
     else:
         X = {data}.drop(columns=[target])
         y = {data}[target]
@@ -189,8 +222,8 @@ try:
             X, y, test_size={test_size}, random_state={random_state}
         )
         
-        print(f"Train shape: X={{{X_train}.shape}}, y={{{y_train}.shape}}")
-        print(f"Test shape:  X={{{X_test}.shape}},  y={{{y_test}.shape}}")
+        print(f"Train shape: X={{X_train}.shape}, y={{y_train}.shape}")
+        print(f"Test shape:  X={{X_test}.shape},  y={{y_test}.shape}")
 except Exception as e:
     print(f"Split failed: {e}")
 """,
@@ -298,7 +331,7 @@ if isinstance({OUTPUT_VAR}.index, pd.DatetimeIndex):
             agg_dict[col] = 'first'
             
     {OUTPUT_VAR} = {OUTPUT_VAR}.resample(rule).agg(agg_dict)
-    print(f"Resampled to {rule} frequency. New shape: {{{OUTPUT_VAR}.shape}}")
+    print(f"Resampled to {rule} frequency. New shape: {{OUTPUT_VAR}.shape}")
     display({OUTPUT_VAR}.head())
 else:
     print("Error: {VAR_NAME} index is not a DatetimeIndex. Cannot resample.")
@@ -415,7 +448,7 @@ for col in target_cols:
 # Drop rows with NaNs created by shifting
 {OUTPUT_VAR}.dropna(inplace=True)
 
-print(f"Generated lag features for {lags}. New shape: {{{OUTPUT_VAR}.shape}}")
+print(f"Generated lag features for {lags}. New shape: {{OUTPUT_VAR}.shape}")
 display({OUTPUT_VAR}.head())
 """,
 
@@ -880,7 +913,190 @@ for i in range(len(axes)):
 
 plt.tight_layout()
 plt.show()
-"""
+""",
+
+    # --- Data Operations ---
+    "select_columns": """
+# Select Columns for {VAR_NAME}
+{OUTPUT_VAR} = {VAR_NAME}.copy()
+columns_to_select = {columns}
+
+# Check if columns exist
+missing_cols = [c for c in columns_to_select if c not in {OUTPUT_VAR}.columns]
+if missing_cols:
+    print(f"Error: Columns not found: {missing_cols}")
+else:
+    {OUTPUT_VAR} = {OUTPUT_VAR}[columns_to_select]
+    print(f"Selected {len(columns_to_select)} columns.")
+    display({OUTPUT_VAR}.head())
+""",
+
+    "filter_rows": """
+# Filter Rows for {VAR_NAME}
+{OUTPUT_VAR} = {VAR_NAME}.copy()
+condition = "{condition}"
+
+try:
+    {OUTPUT_VAR} = {OUTPUT_VAR}.query(condition)
+    print(f"Filtered rows using query: '{condition}'")
+    print(f"Rows remaining: {{OUTPUT_VAR}.shape[0]}")
+    display({OUTPUT_VAR}.head())
+except Exception as e:
+    print(f"Filtering failed: {e}")
+""",
+
+    "sort_values": """
+# Sort Values for {VAR_NAME}
+{OUTPUT_VAR} = {VAR_NAME}.copy()
+by_columns = {by}
+ascending = {ascending}
+
+try:
+    {OUTPUT_VAR} = {OUTPUT_VAR}.sort_values(by=by_columns, ascending=ascending)
+    print(f"Sorted by {by_columns} (Ascending: {ascending})")
+    display({OUTPUT_VAR}.head())
+except Exception as e:
+    print(f"Sorting failed: {e}")
+""",
+
+    "groupby_agg": """
+# GroupBy Aggregation for {VAR_NAME}
+{OUTPUT_VAR} = {VAR_NAME}.copy()
+by_columns = {by}
+agg_dict = {agg_dict}
+
+try:
+    {OUTPUT_VAR} = {OUTPUT_VAR}.groupby(by_columns).agg(agg_dict)
+    print(f"Grouped by {by_columns} and aggregated.")
+    display({OUTPUT_VAR}.head())
+except Exception as e:
+    print(f"GroupBy failed: {e}")
+""",
+
+    "pivot_table": """
+# Pivot Table for {VAR_NAME}
+{OUTPUT_VAR} = {VAR_NAME}.copy()
+
+try:
+    {OUTPUT_VAR} = pd.pivot_table(
+        {OUTPUT_VAR}, 
+        values={values}, 
+        index={index}, 
+        columns={columns}, 
+        aggfunc={aggfunc}
+    )
+    print("Pivot table created.")
+    display({OUTPUT_VAR}.head())
+except Exception as e:
+    print(f"Pivot table failed: {e}")
+""",
+
+    "concat_dfs": """
+# Concat DataFrames
+# Inputs: {df1}, {df2}
+# Output: {OUTPUT_VAR}
+
+try:
+    axis = {axis}
+    {OUTPUT_VAR} = pd.concat([{df1}, {df2}], axis=axis)
+    print(f"Concatenated DataFrames along axis {axis}.")
+    print(f"New shape: {{OUTPUT_VAR}.shape}")
+    display({OUTPUT_VAR}.head())
+except Exception as e:
+    print(f"Concat failed: {e}")
+""",
+
+    "rename_columns": """
+# Rename Columns for {VAR_NAME}
+{OUTPUT_VAR} = {VAR_NAME}.copy()
+columns_map = {columns_map}
+
+try:
+    {OUTPUT_VAR} = {OUTPUT_VAR}.rename(columns=columns_map)
+    print(f"Renamed columns using map: {columns_map}")
+    display({OUTPUT_VAR}.head())
+except Exception as e:
+    print(f"Renaming failed: {e}")
+""",
+
+    "drop_duplicates": """
+# Drop Duplicates for {VAR_NAME}
+{OUTPUT_VAR} = {VAR_NAME}.copy()
+subset = {subset}
+keep = '{keep}'
+
+try:
+    initial_rows = {OUTPUT_VAR}.shape[0]
+    if not subset:
+        subset = None
+    {OUTPUT_VAR} = {OUTPUT_VAR}.drop_duplicates(subset=subset, keep=keep)
+    dropped_rows = initial_rows - {OUTPUT_VAR}.shape[0]
+    print(f"Dropped {dropped_rows} duplicate rows.")
+    display({OUTPUT_VAR}.head())
+except Exception as e:
+    print(f"Drop duplicates failed: {e}")
+""",
+
+    "fill_na": """
+# Fill Missing Values for {VAR_NAME}
+{OUTPUT_VAR} = {VAR_NAME}.copy()
+value = {value}
+method = '{method}'
+
+try:
+    if value is not None and value != '':
+        {OUTPUT_VAR} = {OUTPUT_VAR}.fillna(value=value)
+        print(f"Filled NA with value: {value}")
+    elif method:
+        {OUTPUT_VAR} = {OUTPUT_VAR}.fillna(method=method)
+        print(f"Filled NA with method: {method}")
+    else:
+        print("Warning: No value or method specified for fillna.")
+        
+    display({OUTPUT_VAR}.head())
+except Exception as e:
+    print(f"Fill NA failed: {e}")
+""",
+
+    "export_data": """
+# Export {VAR_NAME} to Global Variable
+# Variable Name: {global_name}
+# This node acts as a pass-through in the flow
+{OUTPUT_VAR} = {VAR_NAME}
+print(f"Marked {VAR_NAME} for export to global variable: '{global_name}'")
+""",
+
+    "astype": """
+# Change Column Types for {VAR_NAME}
+{OUTPUT_VAR} = {VAR_NAME}.copy()
+dtype_map = {dtype_map}
+
+try:
+    {OUTPUT_VAR} = {OUTPUT_VAR}.astype(dtype_map)
+    print(f"Converted column types using map: {dtype_map}")
+    display({OUTPUT_VAR}.dtypes)
+except Exception as e:
+    print(f"Type conversion failed: {e}")
+""",
+
+    "apply_func": """
+# Apply Function for {VAR_NAME}
+{OUTPUT_VAR} = {VAR_NAME}.copy()
+axis = {axis}
+# Define the function here or use lambda in func_code
+# Example func_code: "lambda x: x.sum()" or "np.sum"
+
+try:
+    func = {func_code}
+    {OUTPUT_VAR} = {OUTPUT_VAR}.apply(func, axis=axis)
+    print(f"Applied function along axis {axis}.")
+    # Note: Output might be Series or DataFrame depending on result
+    if isinstance({OUTPUT_VAR}, pd.Series):
+        {OUTPUT_VAR} = {OUTPUT_VAR}.to_frame()
+    display({OUTPUT_VAR}.head())
+except Exception as e:
+    print(f"Apply failed: {e}")
+""",
 }
 
 # 清理模板首行空行
@@ -921,6 +1137,18 @@ ALGORITHM_DESCRIPTIONS = {
     "trend_basic_grid": "将各数值列按网格布局分别绘制，自动计算网格大小以适配列数。",
     "merge_dfs": "合并两个数据框，支持 inner, outer, left, right 连接方式。",
     "train_test_split": "将数据集分割为训练集和测试集。",
+    "select_columns": "从 DataFrame 中选择指定的列生成新的 DataFrame。",
+    "filter_rows": "根据条件表达式筛选 DataFrame 的行。",
+    "sort_values": "根据一个或多个列对 DataFrame 进行排序。",
+    "groupby_agg": "对 DataFrame 进行分组并应用聚合函数。",
+    "pivot_table": "创建电子表格风格的透视表。",
+    "concat_dfs": "沿指定轴连接两个 DataFrame。",
+    "rename_columns": "重命名 DataFrame 的列。",
+    "drop_duplicates": "删除重复的行。",
+    "fill_na": "使用指定值或方法填充缺失值。",
+    "export_data": "将节点数据导出到全局环境，以便在 Notebook 其他单元格中使用。",
+    "astype": "转换 DataFrame 列的数据类型。",
+    "apply_func": "沿指定轴应用自定义函数。",
 }
 
 ALGORITHM_PORTS = {
@@ -938,6 +1166,14 @@ ALGORITHM_PORTS = {
         ]
     },
     "trend_plot": {
+        "inputs": [{"name": "df_in", "type": "DataFrame"}],
+        "outputs": [{"name": "df_out", "type": "DataFrame"}]
+    },
+    "concat_dfs": {
+        "inputs": [{"name": "df1", "type": "DataFrame"}, {"name": "df2", "type": "DataFrame"}],
+        "outputs": [{"name": "df_out", "type": "DataFrame"}]
+    },
+    "export_data": {
         "inputs": [{"name": "df_in", "type": "DataFrame"}],
         "outputs": [{"name": "df_out", "type": "DataFrame"}]
     }
@@ -961,10 +1197,10 @@ def get_library_metadata():
             if algo_id in ALGORITHM_PORTS:
                 inputs = ALGORITHM_PORTS[algo_id].get("inputs", [])
                 outputs = ALGORITHM_PORTS[algo_id].get("outputs", [])
-            elif cat_label == "加载数据":
+            elif cat_label == "输入输出":
                 inputs = []
                 outputs = [{"name": "df_out", "type": "DataFrame"}]
-            elif cat_label in ["数据预处理", "异常检测", "特征工程"]:
+            elif cat_label in ["数据预处理", "异常检测", "特征工程", "数据操作"]:
                 inputs = [{"name": "df_in", "type": "DataFrame"}]
                 outputs = [{"name": "df_out", "type": "DataFrame"}]
             elif cat_label in ["探索式分析", "趋势绘制"]:

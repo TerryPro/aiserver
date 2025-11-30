@@ -383,6 +383,39 @@ class GetAlgorithmPromptsHandler(APIHandler):
     def get(self):
         self.finish(json.dumps(ALGORITHM_PROMPTS, ensure_ascii=False))
 
+class GetCSVColumnsHandler(APIHandler):
+    # Removed @tornado.web.authenticated decorator to disable authentication
+    def post(self):
+        try:
+            data = self.get_json_body()
+            filepath = data.get("filepath", "")
+            
+            if not filepath:
+                 raise ValueError("Filepath is required")
+
+            # Ensure path is relative to CWD if not absolute
+            if not os.path.isabs(filepath):
+                filepath = os.path.join(os.getcwd(), filepath)
+            
+            if not os.path.exists(filepath):
+                # Try relative to 'dataset' if typical pattern
+                filepath_dataset = os.path.join(os.getcwd(), "dataset", os.path.basename(filepath))
+                if os.path.exists(filepath_dataset):
+                    filepath = filepath_dataset
+                else:
+                    raise FileNotFoundError(f"File not found: {filepath}")
+
+            import pandas as pd
+            # Read only header
+            df = pd.read_csv(filepath, nrows=0)
+            columns = df.columns.tolist()
+            
+            self.finish(json.dumps({"columns": columns}))
+        except Exception as e:
+            logger.error(f"Failed to get CSV columns: {e}")
+            self.set_status(500)
+            self.finish(json.dumps({"error": str(e)}))
+
 def setup_handlers(web_app):
     host_pattern = ".*$"
 
@@ -392,6 +425,7 @@ def setup_handlers(web_app):
         (url_path_join(base_url, "aiserver", "generate"), GenerateHandler),
         (url_path_join(base_url, "aiserver", "analyze-dataframe"), AnalyzeDataFrameHandler),
         (url_path_join(base_url, "aiserver", "algorithm-prompts"), GetAlgorithmPromptsHandler),
-        (url_path_join(base_url, "aiserver", "function-library"), GetFunctionLibraryHandler)
+        (url_path_join(base_url, "aiserver", "function-library"), GetFunctionLibraryHandler),
+        (url_path_join(base_url, "aiserver", "get-csv-columns"), GetCSVColumnsHandler)
     ]
     web_app.add_handlers(host_pattern, handlers)
