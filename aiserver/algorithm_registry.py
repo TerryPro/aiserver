@@ -13,6 +13,16 @@ ALGORITHM_PARAMETERS = {
             "widget": "file-selector"  # Hint for UI to render file selector
         }
     ],
+    "import_variable": [
+        {
+            "name": "variable_name",
+            "type": "str",
+            "default": "",
+            "label": "Variable Name",
+            "description": "Name of the DataFrame variable in the current session",
+            "widget": "variable-selector"
+        }
+    ],
     "smoothing_sg": [
         {
             "name": "window_length",
@@ -136,5 +146,57 @@ ALGORITHM_PARAMETERS = {
             "label": "Column",
             "description": "Column to plot (for Y axis)"
         }
+    ],
+    "merge_dfs": [
+        {
+            "name": "how",
+            "type": "str",
+            "default": "inner",
+            "label": "How",
+            "options": ["inner", "outer", "left", "right"],
+            "description": "Type of merge to be performed"
+        },
+        {
+            "name": "on",
+            "type": "str",
+            "default": "",
+            "label": "On (Column)",
+            "description": "Column or index level names to join on. Leave empty to use index."
+        }
+    ],
+    "train_test_split": [
+        {
+            "name": "test_size",
+            "type": "float",
+            "default": 0.2,
+            "label": "Test Size",
+            "description": "Proportion of the dataset to include in the test split",
+            "min": 0.01,
+            "max": 0.99,
+            "step": 0.05
+        },
+        {
+            "name": "target_column",
+            "type": "str",
+            "default": "target",
+            "label": "Target Column",
+            "description": "Name of the target variable column (y)"
+        },
+        {
+            "name": "random_state",
+            "type": "int",
+            "default": 42,
+            "label": "Random State",
+            "description": "Controls the shuffling applied to the data before applying the split"
+        }
+    ],
+    "trend_plot": [
+        {"name": "x_column", "type": "str", "default": "", "label": "X轴列名", "description": "作为X轴的列 (留空则使用索引)"},
+        {"name": "y_columns", "type": "str", "default": "", "label": "Y轴列名", "description": "Y轴数据列，用逗号分隔 (留空则绘制所有数值列)"},
+        {"name": "title", "type": "str", "default": "趋势图", "label": "图表标题", "description": "图表的标题"},
+        {"name": "xlabel", "type": "str", "default": "", "label": "X轴标签", "description": "X轴的显示标签"},
+        {"name": "ylabel", "type": "str", "default": "", "label": "Y轴标签", "description": "Y轴的显示标签"},
+        {"name": "grid", "type": "bool", "default": True, "label": "显示网格", "description": "是否显示背景网格"},
+        {"name": "figsize", "type": "str", "default": "(10, 6)", "label": "图像尺寸", "description": "图像大小元组，例如 (10, 6)"}
     ]
 }

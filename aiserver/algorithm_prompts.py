@@ -12,6 +12,11 @@ ALGORITHM_PROMPTS = {
                 "id": "load_csv",
                 "name": "加载 CSV",
                 "prompt": "请加载 CSV 文件。使用 pandas.read_csv 读取指定路径的文件，并显示前几行数据。"
+            },
+            {
+                "id": "import_variable",
+                "name": "引入变量",
+                "prompt": "请引入已存在的 DataFrame 变量 {variable_name}。创建其副本或引用，以便后续分析使用。"
             }
         ]
     },
@@ -82,6 +87,16 @@ ALGORITHM_PROMPTS = {
                 "id": "filter_butterworth",
                 "name": "巴特沃斯低通滤波",
                 "prompt": "请对 {VAR_NAME} 应用巴特沃斯低通滤波器。设置截止频率和阶数，去除高频噪声，保留主要趋势信号。"
+            },
+            {
+                "id": "merge_dfs",
+                "name": "数据合并 (Merge)",
+                "prompt": "请合并两个数据框 {left} 和 {right}。根据指定的合并方式（inner, outer, left, right）和连接键进行 pd.merge 操作。"
+            },
+            {
+                "id": "train_test_split",
+                "name": "训练/测试集分割",
+                "prompt": "请将 {data} 分割为训练集和测试集。使用 sklearn.model_selection.train_test_split，返回 X_train, X_test, y_train, y_test。"
             }
         ]
     },
@@ -148,6 +163,11 @@ ALGORITHM_PROMPTS = {
     "trend_plot": {
         "label": "趋势绘制",
         "algorithms": [
+            {
+                "id": "trend_plot",
+                "name": "通用趋势图 (Trend)",
+                "prompt": "请根据配置绘制 {VAR_NAME} 的趋势图。支持自定义 X 轴、Y 轴列、标题、网格等设置。"
+            },
             {
                 "id": "trend_ma",
                 "name": "移动平均趋势",

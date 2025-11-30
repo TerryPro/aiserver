@@ -7,12 +7,48 @@ These templates are designed to be inserted into Jupyter Notebook cells.
 from .algorithm_prompts import ALGORITHM_PROMPTS
 from .algorithm_registry import ALGORITHM_PARAMETERS
 
+ALGORITHM_IMPORTS = {
+    "load_csv": ["import pandas as pd", "import os"],
+    "plot_custom": ["import matplotlib.pyplot as plt"],
+    "smoothing_sg": ["import pandas as pd", "import numpy as np", "from scipy.signal import savgol_filter"],
+    "smoothing_ma": ["import pandas as pd", "import numpy as np"],
+    "interpolation_time": ["import pandas as pd"],
+    "interpolation_spline": ["import pandas as pd", "import numpy as np"],
+    "resampling_down": ["import pandas as pd"],
+    "alignment": ["import pandas as pd"],
+    "feature_scaling": ["import pandas as pd", "from sklearn.preprocessing import StandardScaler, MinMaxScaler"],
+    "diff_transform": ["import pandas as pd", "import matplotlib.pyplot as plt"],
+    "outlier_clip": ["import pandas as pd"],
+    "feature_extraction_time": ["import pandas as pd"],
+    "feature_lag": ["import pandas as pd"],
+    "transform_log": ["import pandas as pd", "import numpy as np", "import matplotlib.pyplot as plt"],
+    "filter_butterworth": ["import pandas as pd", "import numpy as np", "from scipy.signal import butter, filtfilt", "import matplotlib.pyplot as plt"],
+    "summary_stats": ["import pandas as pd"],
+    "line_plot": ["import matplotlib.pyplot as plt", "import seaborn as sns", "import pandas as pd"],
+    "spectral_analysis": ["import numpy as np", "import matplotlib.pyplot as plt", "from scipy.signal import welch"],
+    "autocorrelation": ["import matplotlib.pyplot as plt", "from statsmodels.graphics.tsaplots import plot_acf"],
+    "decomposition": ["import matplotlib.pyplot as plt", "from statsmodels.tsa.seasonal import STL", "import pandas as pd"],
+    "heatmap_distribution": ["import seaborn as sns", "import matplotlib.pyplot as plt", "import pandas as pd"],
+    "threshold_sigma": ["import pandas as pd", "import matplotlib.pyplot as plt"],
+    "isolation_forest": ["from sklearn.ensemble import IsolationForest", "import matplotlib.pyplot as plt", "import pandas as pd"],
+    "change_point": ["import matplotlib.pyplot as plt", "import ruptures as rpt", "import numpy as np"],
+    "trend_ma": ["import matplotlib.pyplot as plt"],
+    "trend_ewma": ["import matplotlib.pyplot as plt"],
+    "trend_loess": ["import statsmodels.api as sm", "import matplotlib.pyplot as plt", "import numpy as np"],
+    "trend_polyfit": ["import numpy as np", "import matplotlib.pyplot as plt"],
+    "trend_stl_trend": ["from statsmodels.tsa.seasonal import STL", "import matplotlib.pyplot as plt", "import pandas as pd"],
+    "trend_basic_stacked": ["import matplotlib.pyplot as plt"],
+    "trend_basic_overlay": ["import matplotlib.pyplot as plt"],
+    "trend_basic_grid": ["import matplotlib.pyplot as plt", "import math"],
+    "merge_dfs": ["import pandas as pd"],
+    "train_test_split": ["from sklearn.model_selection import train_test_split", "import pandas as pd"],
+    "import_variable": ["import pandas as pd"],
+    "trend_plot": ["import matplotlib.pyplot as plt"],
+}
+
 ALGORITHM_TEMPLATES = {
     # --- Data Loading ---
     "load_csv": """
-import pandas as pd
-import os
-
 # Load CSV Data
 filepath = '{filepath}'
 if not os.path.exists(filepath):
@@ -23,10 +59,144 @@ else:
     display({OUTPUT_VAR}.head())
 """,
 
+    "import_variable": """
+# Import Existing Variable
+# Source: {variable_name}
+# Output: {OUTPUT_VAR}
+
+try:
+    if '{variable_name}' not in locals():
+        print(f"Error: Variable '{{variable_name}}' not found in current session.")
+    else:
+        # Create a copy to avoid modifying the original variable accidentally
+        {OUTPUT_VAR} = {variable_name}.copy()
+        print(f"Imported '{{variable_name}}' as '{OUTPUT_VAR}' with shape: {{{OUTPUT_VAR}.shape}}")
+        display({OUTPUT_VAR}.head())
+except Exception as e:
+    print(f"Import failed: {e}")
+""",
+
+    "trend_plot": """
+# Trend Plot (Complex)
+# Input: {VAR_NAME}
+# Output: {OUTPUT_VAR} (Pass-through)
+
+import matplotlib.pyplot as plt
+import pandas as pd
+
+{OUTPUT_VAR} = {VAR_NAME}
+
+try:
+    # Configuration
+    x_col = '{x_column}'
+    y_cols_str = '{y_columns}'
+    title = '{title}'
+    xlabel = '{xlabel}'
+    ylabel = '{ylabel}'
+    show_grid = {grid}
+    figsize_str = '{figsize}'
+    
+    # Parse figsize
+    try:
+        figsize = eval(figsize_str) if figsize_str else (10, 6)
+    except:
+        figsize = (10, 6)
+
+    plt.figure(figsize=figsize)
+    
+    # Plotting
+    if x_col and x_col in {VAR_NAME}.columns:
+        # Convert to datetime if possible for better plotting
+        try:
+            x_data = pd.to_datetime({VAR_NAME}[x_col])
+        except Exception:
+            print(f"Warning: Could not convert column '{{x_col}}' to datetime. Using original values.")
+            x_data = {VAR_NAME}[x_col]
+    else:
+        x_data = {VAR_NAME}.index
+        if x_col:
+            print(f"Warning: X column '{{x_col}}' not found, using index.")
+
+    # Parse Y columns
+    if y_cols_str:
+        y_cols = [c.strip() for c in y_cols_str.split(',') if c.strip()]
+    else:
+        y_cols = []
+
+    if not y_cols:
+        # If no Y columns specified, plot all numeric columns
+        y_cols = {VAR_NAME}.select_dtypes(include=['number']).columns.tolist()
+
+    for col in y_cols:
+        if col in {VAR_NAME}.columns:
+            plt.plot(x_data, {VAR_NAME}[col], label=col)
+        else:
+            print(f"Warning: Y column '{{col}}' not found.")
+
+    # Support Chinese characters in title and labels if needed
+    plt.rcParams['font.sans-serif'] = ['SimHei'] # Use SimHei for Chinese
+    plt.rcParams['axes.unicode_minus'] = False   # Fix minus sign
+
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.grid(show_grid)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+except Exception as e:
+    print(f"Error creating trend plot: {e}")
+""",
+
+    "merge_dfs": """
+# Merge DataFrames
+# Inputs: {left}, {right}
+# Output: {merged}
+
+try:
+    # Check if inputs are available
+    if '{left}' not in locals() or '{right}' not in locals():
+        print("Error: Input DataFrames not found.")
+    else:
+        on_col = '{on}'
+        if on_col == '':
+            # Merge on index if no column specified
+            {merged} = pd.merge({left}, {right}, how='{how}', left_index=True, right_index=True)
+        else:
+            {merged} = pd.merge({left}, {right}, how='{how}', on=on_col)
+            
+        print(f"Merged shape: {{{merged}.shape}}")
+        display({merged}.head())
+except Exception as e:
+    print(f"Merge failed: {e}")
+""",
+
+    "train_test_split": """
+# Train/Test Split
+# Input: {data}
+# Outputs: {X_train}, {X_test}, {y_train}, {y_test}
+
+try:
+    target = '{target_column}'
+    if target not in {data}.columns:
+        print(f"Error: Target column '{{target}}' not found in DataFrame.")
+    else:
+        X = {data}.drop(columns=[target])
+        y = {data}[target]
+        
+        {X_train}, {X_test}, {y_train}, {y_test} = train_test_split(
+            X, y, test_size={test_size}, random_state={random_state}
+        )
+        
+        print(f"Train shape: X={{{X_train}.shape}}, y={{{y_train}.shape}}")
+        print(f"Test shape:  X={{{X_test}.shape}},  y={{{y_test}.shape}}")
+except Exception as e:
+    print(f"Split failed: {e}")
+""",
+
     # --- Visualization ---
     "plot_custom": """
-import matplotlib.pyplot as plt
-
 # Generic Plot
 # Plot type: {plot_type}, Column: {column}
 if '{column}':
@@ -39,10 +209,6 @@ plt.show()
     # --- Data Preprocessing ---
     # 对数据框的数值列执行 Savitzky-Golay 平滑：先插值填补缺失值，再按指定窗口长度和多项式阶数进行滤波，结果以 _sg 后缀写入新列。
     "smoothing_sg": """
-import pandas as pd
-import numpy as np
-from scipy.signal import savgol_filter
-
 # Savitzky-Golay Smoothing for {VAR_NAME}
 # Note: window_length must be odd and greater than polyorder
 {OUTPUT_VAR} = {VAR_NAME}.copy()
@@ -64,9 +230,6 @@ for col in numeric_cols:
 
     # 对数值列使用居中窗口计算移动平均，得到平滑序列并以 _ma 后缀写入新列。
     "smoothing_ma": """
-import pandas as pd
-import numpy as np
-
 # Moving Average Smoothing for {VAR_NAME}
 {OUTPUT_VAR} = {VAR_NAME}.copy()
 numeric_cols = {OUTPUT_VAR}.select_dtypes(include=[np.number]).columns
@@ -81,8 +244,6 @@ for col in numeric_cols:
 
     # 依据索引类型选择插值方式：DatetimeIndex 使用 time 插值，否则使用 linear 插值，并输出剩余缺失统计。
     "interpolation_time": """
-import pandas as pd
-
 # Time-weighted Interpolation for {VAR_NAME}
 # Requires a DatetimeIndex for 'time' method
 {OUTPUT_VAR} = {VAR_NAME}.copy()
@@ -103,9 +264,6 @@ print("Remaining missing values:\\n", {OUTPUT_VAR}.isnull().sum())
 
     # 尝试三次样条插值以获取更平滑的曲线，不兼容时回退到线性插值。
     "interpolation_spline": """
-import pandas as pd
-import numpy as np
-
 # Spline Interpolation for {VAR_NAME}
 {OUTPUT_VAR} = {VAR_NAME}.copy()
 
@@ -124,8 +282,6 @@ except Exception as e:
 
     # 当索引为 DatetimeIndex 时按指定规则进行重采样聚合：数值列取均值，非数值列取 first。
     "resampling_down": """
-import pandas as pd
-
 # Downsampling (Aggregation) for {VAR_NAME}
 # Requires DatetimeIndex
 {OUTPUT_VAR} = {VAR_NAME}.copy()
@@ -150,8 +306,6 @@ else:
 
     # 以基准数据框为时间轴，使用 merge_asof 按最近时间点对齐其他数据源（示例需替换 OTHER_DF）。
     "alignment": """
-import pandas as pd
-
 # Multi-source Data Alignment using {VAR_NAME} as baseline
 # This template assumes you have another dataframe to merge. 
 # Please replace 'OTHER_DF' with your secondary dataframe name.
@@ -172,9 +326,6 @@ print("Please uncomment and set 'OTHER_DF' to perform alignment.")
 
     # 对数值列进行 Z-Score 标准化和 Min-Max 归一化，生成对应后缀的新列。
     "feature_scaling": """
-import pandas as pd
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
-
 # Feature Scaling for {VAR_NAME}
 {OUTPUT_VAR} = {VAR_NAME}.select_dtypes(include=['number']).copy()
 cols = {OUTPUT_VAR}.columns
@@ -195,9 +346,6 @@ display({OUTPUT_VAR}.head())
 
     # 计算一阶和二阶差分以消除趋势，并绘制差分后的时序对比图。
     "diff_transform": """
-import pandas as pd
-import matplotlib.pyplot as plt
-
 # Difference Transform for {VAR_NAME}
 {OUTPUT_VAR} = {VAR_NAME}.select_dtypes(include=['number']).copy()
 
@@ -218,8 +366,6 @@ plt.show()
 
     # 将数值列中超过 1% 和 99% 分位数的极端值进行盖帽（截断）处理。
     "outlier_clip": """
-import pandas as pd
-
 # Outlier Winsorization for {VAR_NAME}
 {OUTPUT_VAR} = {VAR_NAME}.copy()
 numeric_cols = {OUTPUT_VAR}.select_dtypes(include=['number']).columns
@@ -239,8 +385,6 @@ display({OUTPUT_VAR}.head())
 
     # 从 DatetimeIndex 提取小时、星期、月份、是否周末等时间特征列。
     "feature_extraction_time": """
-import pandas as pd
-
 # Time Feature Extraction for {VAR_NAME}
 {OUTPUT_VAR} = {VAR_NAME}.copy()
 
@@ -259,8 +403,6 @@ else:
 
     # 生成指定滞后步数（1-3）的特征列，用于构建自回归模型数据集。
     "feature_lag": """
-import pandas as pd
-
 # Lag Feature Generation for {VAR_NAME}
 {OUTPUT_VAR} = {VAR_NAME}.select_dtypes(include=['number']).copy()
 target_cols = {OUTPUT_VAR}.columns
@@ -279,10 +421,6 @@ display({OUTPUT_VAR}.head())
 
     # 对数值列进行 Log1p 变换以平滑分布，自动处理负值偏移，并绘制分布对比图。
     "transform_log": """
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-
 # Log Transformation for {VAR_NAME}
 {OUTPUT_VAR} = {VAR_NAME}.select_dtypes(include=['number']).copy()
 cols = {OUTPUT_VAR}.columns
@@ -315,11 +453,6 @@ display({OUTPUT_VAR}.head())
 
     # 应用巴特沃斯低通滤波器去除高频噪声，需插值处理缺失值。
     "filter_butterworth": """
-import pandas as pd
-import numpy as np
-from scipy.signal import butter, filtfilt
-import matplotlib.pyplot as plt
-
 # Butterworth Lowpass Filter for {VAR_NAME}
 {OUTPUT_VAR} = {VAR_NAME}.select_dtypes(include=['number']).copy()
 
@@ -355,8 +488,6 @@ plt.show()
     # --- Exploratory Data Analysis (EDA) ---
     # 输出基础统计 describe、偏度与峰度、时间范围与采样间隔估计、缺失值数量与占比的汇总。
     "summary_stats": """
-import pandas as pd
-
 # Time Series Summary Statistics for {VAR_NAME}
 df_stats = {VAR_NAME}
 
@@ -391,10 +522,6 @@ display(missing_df[missing_df['Missing Count'] > 0])
 
     # 绘制所有数值列的时序曲线；数据量过大时先下采样；启用中文、网格、图例并自适配布局。
     "line_plot": """
-import matplotlib.pyplot as plt
-import seaborn as sns
-import pandas as pd
-
 # Multi-scale Time Series Plot for {VAR_NAME}
 plt.figure(figsize=(15, 6))
 sns.set_style("whitegrid")
@@ -424,10 +551,6 @@ plt.show()
 
     # 对数值列插值后使用 Welch 方法计算功率谱密度并以半对数坐标绘制，用于识别周期成分。
     "spectral_analysis": """
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy.signal import welch
-
 # Spectral Analysis (PSD) for {VAR_NAME}
 df_psd = {VAR_NAME}.select_dtypes(include=['number'])
 plt.figure(figsize=(12, 6))
@@ -452,9 +575,6 @@ plt.show()
 
     # 对最多三个数值列计算并绘制自相关函数（ACF），默认滞后阶数为 50。
     "autocorrelation": """
-import matplotlib.pyplot as plt
-from statsmodels.graphics.tsaplots import plot_acf
-
 # Autocorrelation (ACF) for {VAR_NAME}
 df_acf = {VAR_NAME}.select_dtypes(include=['number'])
 
@@ -476,10 +596,6 @@ plt.show()
 
     # 对第一数值列进行 STL 分解，必要时推断频率并插值，展示趋势、季节项与残差。
     "decomposition": """
-import matplotlib.pyplot as plt
-from statsmodels.tsa.seasonal import STL
-import pandas as pd
-
 # STL Decomposition for {VAR_NAME}
 # Requires DatetimeIndex with frequency inferred or set
 df_stl = {VAR_NAME}.select_dtypes(include=['number']).copy()
@@ -508,10 +624,6 @@ except Exception as e:
 
     # 将 DatetimeIndex 拆分为日期与小时，按均值汇聚形成透视表并绘制热力图观察日内/季节性模式。
     "heatmap_distribution": """
-import seaborn as sns
-import matplotlib.pyplot as plt
-import pandas as pd
-
 # Time Series Heatmap for {VAR_NAME}
 # Analyzes distribution by Date vs Hour
 df_heat = {VAR_NAME}.copy()
@@ -537,9 +649,6 @@ else:
     # --- Anomaly Detection ---
     # 计算滚动均值与标准差，标记超过 mean±3*std 的异常点，并在图中高亮显示。
     "threshold_sigma": """
-import pandas as pd
-import matplotlib.pyplot as plt
-
 # 3-Sigma Anomaly Detection for {VAR_NAME}
 df_anom = {VAR_NAME}.copy()
 target_col = df_anom.select_dtypes(include=['number']).columns[0]
@@ -569,10 +678,6 @@ print(f"Found {len(anomalies)} anomalies.")
 
     # 对数值列训练孤立森林（默认污染率 0.05），输出模型判定的异常点并可视化。
     "isolation_forest": """
-from sklearn.ensemble import IsolationForest
-import matplotlib.pyplot as plt
-import pandas as pd
-
 # Isolation Forest Anomaly Detection for {VAR_NAME}
 df_iso = {VAR_NAME}.select_dtypes(include=['number']).dropna()
 
@@ -594,10 +699,6 @@ plt.show()
 
     # 对第一数值列使用 ruptures 的二分段 L2 模型检测变点，返回并展示切分位置。
     "change_point": """
-import matplotlib.pyplot as plt
-import ruptures as rpt
-import numpy as np
-
 # Change Point Detection for {VAR_NAME}
 # Uses binary segmentation with L2 cost
 df_cp = {VAR_NAME}.select_dtypes(include=['number']).dropna()
@@ -617,8 +718,6 @@ plt.show()
     # --- Trend Plot ---
     # 对第一数值列按固定窗口计算移动平均作为趋势线，并与原序列对比绘制。
     "trend_ma": """
-import matplotlib.pyplot as plt
-
 # Moving Average Trend for {VAR_NAME}
 df_trend = {VAR_NAME}.select_dtypes(include=['number']).copy()
 target_col = df_trend.columns[0]
@@ -637,8 +736,6 @@ plt.show()
 
     # 对第一数值列计算指数加权移动平均作为趋势（span 可调），并与原序列对比绘制。
     "trend_ewma": """
-import matplotlib.pyplot as plt
-
 # EWMA Trend for {VAR_NAME}
 df_trend = {VAR_NAME}.select_dtypes(include=['number']).copy()
 target_col = df_trend.columns[0]
@@ -657,10 +754,6 @@ plt.show()
 
     # 对第一数值列使用 LOWESS/LOESS 进行非参数平滑拟合，得到平滑趋势线。
     "trend_loess": """
-import statsmodels.api as sm
-import matplotlib.pyplot as plt
-import numpy as np
-
 # LOESS Trend for {VAR_NAME}
 df_trend = {VAR_NAME}.select_dtypes(include=['number']).dropna().copy()
 target_col = df_trend.columns[0]
@@ -683,9 +776,6 @@ plt.show()
 
     # 对第一数值列拟合二次多项式得到趋势线，并与原序列对比展示。
     "trend_polyfit": """
-import numpy as np
-import matplotlib.pyplot as plt
-
 # Polynomial Trend Fit for {VAR_NAME}
 df_trend = {VAR_NAME}.select_dtypes(include=['number']).dropna().copy()
 target_col = df_trend.columns[0]
@@ -708,10 +798,6 @@ plt.show()
 
     # 对第一数值列进行 STL 分解并提取 trend 分量，绘制趋势随时间的变化。
     "trend_stl_trend": """
-from statsmodels.tsa.seasonal import STL
-import matplotlib.pyplot as plt
-import pandas as pd
-
 # STL Trend Extraction for {VAR_NAME}
 df_stl = {VAR_NAME}.select_dtypes(include=['number']).copy()
 
@@ -739,8 +825,6 @@ except Exception as e:
 
     # 为每个数值列单独绘制子图并垂直堆叠展示，便于逐列观察。
     "trend_basic_stacked": """
-import matplotlib.pyplot as plt
-
 # Stacked Plot for {VAR_NAME}
 df_plot = {VAR_NAME}.select_dtypes(include=['number'])
 cols = df_plot.columns
@@ -759,8 +843,6 @@ plt.show()
 
     # 将所有数值列叠加在同一坐标轴中展示，便于横向对比。
     "trend_basic_overlay": """
-import matplotlib.pyplot as plt
-
 # Overlay Plot for {VAR_NAME}
 df_plot = {VAR_NAME}.select_dtypes(include=['number'])
 
@@ -776,9 +858,6 @@ plt.show()
 
     # 将各数值列按网格布局分别绘制，自动计算网格大小以适配列数。
     "trend_basic_grid": """
-import matplotlib.pyplot as plt
-import math
-
 # Grid Plot for {VAR_NAME}
 df_plot = {VAR_NAME}.select_dtypes(include=['number'])
 cols = df_plot.columns
@@ -809,6 +888,7 @@ CLEAN_TEMPLATES = {k: v.lstrip('\n') for k, v in ALGORITHM_TEMPLATES.items()}
 
 ALGORITHM_DESCRIPTIONS = {
     "load_csv": "加载 CSV 文件并显示前 5 行预览。支持自动识别列类型。",
+    "import_variable": "从当前 Kernel 会话中引入已存在的 DataFrame 变量。",
     "smoothing_sg": "对数据框的数值列执行 Savitzky-Golay 平滑：先插值填补缺失值，再按指定窗口长度和多项式阶数进行滤波，结果以 _sg 后缀写入新列。",
     "smoothing_ma": "对数值列使用居中窗口计算移动平均，得到平滑序列并以 _ma 后缀写入新列。",
     "interpolation_time": "依据索引类型选择插值方式：DatetimeIndex 使用 time 插值，否则使用 linear 插值，并输出剩余缺失统计。",
@@ -839,6 +919,28 @@ ALGORITHM_DESCRIPTIONS = {
     "trend_basic_stacked": "为每个数值列单独绘制子图并垂直堆叠展示，便于逐列观察。",
     "trend_basic_overlay": "将所有数值列叠加在同一坐标轴中展示，便于横向对比。",
     "trend_basic_grid": "将各数值列按网格布局分别绘制，自动计算网格大小以适配列数。",
+    "merge_dfs": "合并两个数据框，支持 inner, outer, left, right 连接方式。",
+    "train_test_split": "将数据集分割为训练集和测试集。",
+}
+
+ALGORITHM_PORTS = {
+    "merge_dfs": {
+        "inputs": [{"name": "left", "type": "DataFrame"}, {"name": "right", "type": "DataFrame"}],
+        "outputs": [{"name": "merged", "type": "DataFrame"}]
+    },
+    "train_test_split": {
+        "inputs": [{"name": "data", "type": "DataFrame"}],
+        "outputs": [
+            {"name": "X_train", "type": "DataFrame"},
+            {"name": "X_test", "type": "DataFrame"},
+            {"name": "y_train", "type": "Series"},
+            {"name": "y_test", "type": "Series"}
+        ]
+    },
+    "trend_plot": {
+        "inputs": [{"name": "df_in", "type": "DataFrame"}],
+        "outputs": [{"name": "df_out", "type": "DataFrame"}]
+    }
 }
 
 def get_library_metadata():
@@ -856,10 +958,13 @@ def get_library_metadata():
             inputs = []
             outputs = []
             
-            if cat_label == "加载数据":
+            if algo_id in ALGORITHM_PORTS:
+                inputs = ALGORITHM_PORTS[algo_id].get("inputs", [])
+                outputs = ALGORITHM_PORTS[algo_id].get("outputs", [])
+            elif cat_label == "加载数据":
                 inputs = []
                 outputs = [{"name": "df_out", "type": "DataFrame"}]
-            elif cat_label in ["数据预处理", "异常检测"]:
+            elif cat_label in ["数据预处理", "异常检测", "特征工程"]:
                 inputs = [{"name": "df_in", "type": "DataFrame"}]
                 outputs = [{"name": "df_out", "type": "DataFrame"}]
             elif cat_label in ["探索式分析", "趋势绘制"]:
@@ -878,6 +983,10 @@ def get_library_metadata():
                 node_type = "csv_loader"
             elif algo_id == "plot_custom":
                 node_type = "plot"
+            elif algo_id == "import_variable":
+                node_type = "generic" # We will handle variable-selector in GenericNode
+            elif algo_id == "trend_plot":
+                node_type = "trend"
             
             library[cat_label].append({
                 "id": algo_id,
@@ -888,6 +997,7 @@ def get_library_metadata():
                 "inputs": inputs,
                 "outputs": outputs,
                 "nodeType": node_type,  # Frontend configuration
+                "imports": ALGORITHM_IMPORTS.get(algo_id, []), # Add imports field
                 # Keep backward compatibility fields if needed, or dummy them
                 "docstring": template, 
                 "signature": "",
