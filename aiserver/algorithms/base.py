@@ -1,5 +1,10 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 from dataclasses import dataclass, field
+
+@dataclass
+class Port:
+    name: str
+    type: str = "DataFrame"
 
 @dataclass
 class AlgorithmParameter:
@@ -38,12 +43,21 @@ class Algorithm:
     template: str
     parameters: List[AlgorithmParameter] = field(default_factory=list)
     imports: List[str] = field(default_factory=list)
+    inputs: List[Port] = field(default_factory=list)
+    outputs: List[Port] = field(default_factory=list)
 
     def to_prompt_dict(self):
         return {
             "id": self.id,
             "name": self.name,
             "prompt": self.prompt
+        }
+    
+    def to_port_dict(self):
+        """Convert ports to dictionary format for frontend"""
+        return {
+            "inputs": [{"name": port.name, "type": port.type} for port in self.inputs],
+            "outputs": [{"name": port.name, "type": port.type} for port in self.outputs]
         }
 
 @dataclass

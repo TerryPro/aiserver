@@ -1,4 +1,4 @@
-from .base import Algorithm, AlgorithmParameter
+from .base import Algorithm, AlgorithmParameter, Port
 
 plot_custom = Algorithm(
     id="plot_custom",
@@ -10,6 +10,8 @@ plot_custom = Algorithm(
         AlgorithmParameter(name="column", type="str", default="", label="列名", description="要绘制的列 (Y轴)")
     ],
     imports=["import matplotlib.pyplot as plt"],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     template="""
 # Generic Plot
 # Plot type: {plot_type}, Column: {column}
@@ -28,6 +30,8 @@ summary_stats = Algorithm(
     prompt="请对{VAR_NAME} 执行时序统计摘要分析。\\n代码应包含以下步骤:\\n1. 基础统计量：使用 pandas 的 describe() 方法计算均值、标准差、最小值、最大值及四分位数。\\n2. 分布特征：计算数据的偏度 (skewness) 和峰度 (kurtosis) 以评估数据分布形态。\\n3. 时间特性分析：\\n   - 计算时间覆盖范围（起始时间、结束时间、总时长）。\\n   - 推断或计算平均采样间隔/频率。\\n4. 数据质量评估：统计缺失值的数量及占比。\\n请将所有结果汇总为一个清晰的 DataFrame 或字典格式返回，以便于查看。",
     parameters=[],
     imports=["import pandas as pd"],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     template="""
 # Time Series Summary Statistics for {VAR_NAME}
 df_stats = {VAR_NAME}
@@ -69,6 +73,8 @@ line_plot = Algorithm(
     prompt="请对{VAR_NAME} 绘制时序曲线图。使用 matplotlib 或 seaborn，并满足：1. X轴时间格式化；2. 支持缩放；3. 添加网格、图例与中文标签；4. 数据量过大时先降采样再绘图。",
     parameters=[],
     imports=["import matplotlib.pyplot as plt", "import seaborn as sns", "import pandas as pd"],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     template="""
 # Multi-scale Time Series Plot for {VAR_NAME}
 plt.figure(figsize=(15, 6))
@@ -105,6 +111,8 @@ spectral_analysis = Algorithm(
     prompt="请对{VAR_NAME} 进行频域分析，计算并绘制功率谱密度 (PSD)。使用 scipy.signal.welch，并以对数坐标显示频率和功率，用于识别周期性成分。",
     parameters=[],
     imports=["import numpy as np", "import matplotlib.pyplot as plt", "from scipy.signal import welch"],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     template="""
 # Spectral Analysis (PSD) for {VAR_NAME}
 df_psd = {VAR_NAME}.select_dtypes(include=['number'])
@@ -138,6 +146,8 @@ autocorrelation = Algorithm(
         AlgorithmParameter(name="lags", type="int", default=50, label="滞后数", description="绘制的滞后数量", min=10, max=200)
     ],
     imports=["import matplotlib.pyplot as plt", "from statsmodels.graphics.tsaplots import plot_acf"],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     template="""
 # Autocorrelation (ACF) for {VAR_NAME}
 df_acf = {VAR_NAME}.select_dtypes(include=['number'])
@@ -166,6 +176,8 @@ decomposition = Algorithm(
     prompt="请对{VAR_NAME} 执行 STL 分解 (Seasonal-Trend decomposition using LOESS)。将数据分解为趋势、季节与残差，并绘制分解结果图。",
     parameters=[],
     imports=["import matplotlib.pyplot as plt", "from statsmodels.tsa.seasonal import STL", "import pandas as pd"],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     template="""
 # STL Decomposition for {VAR_NAME}
 # Requires DatetimeIndex with frequency inferred or set
@@ -201,6 +213,8 @@ heatmap_distribution = Algorithm(
     prompt="请基于 {VAR_NAME} 绘制时序热力图，用于观察分布模式（例如 X=日期，Y=小时，颜色=数值）。用于发现日内模式或季节性变化。",
     parameters=[],
     imports=["import seaborn as sns", "import matplotlib.pyplot as plt", "import pandas as pd"],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     template="""
 # Time Series Heatmap for {VAR_NAME}
 # Analyzes distribution by Date vs Hour
@@ -229,3 +243,4 @@ algorithms = [
     plot_custom, summary_stats, line_plot, spectral_analysis,
     autocorrelation, decomposition, heatmap_distribution
 ]
+

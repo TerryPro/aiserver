@@ -1,4 +1,4 @@
-from .base import Algorithm, AlgorithmParameter
+from .base import Algorithm, AlgorithmParameter, Port
 
 trend_plot = Algorithm(
     id="trend_plot",
@@ -15,6 +15,8 @@ trend_plot = Algorithm(
         AlgorithmParameter(name="figsize", type="str", default="(10, 6)", label="图像尺寸", description="图像大小元组，例如 (10, 6)")
     ],
     imports=["import matplotlib.pyplot as plt", "import pandas as pd"],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     template="""
 # Trend Plot (Complex)
 # Input: {VAR_NAME}
@@ -103,6 +105,8 @@ trend_ma = Algorithm(
     prompt="请对{VAR_NAME} 绘制移动平均趋势线。先推断采样频率并将数据重采样到统一时间轴（如 '1S'），选择合理的窗口长度（例如 60 或 300 秒），使用 pandas 的 rolling().mean() 计算趋势线，并用 matplotlib 绘制原始曲线与趋势线，添加网格、图例与中文标签。若 {VAR_NAME} 为 DataFrame，请对数值列分别绘制。",
     parameters=[],
     imports=["import matplotlib.pyplot as plt"],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     template="""
 # Moving Average Trend for {VAR_NAME}
 df_trend = {VAR_NAME}.select_dtypes(include=['number']).copy()
@@ -128,6 +132,8 @@ trend_ewma = Algorithm(
     prompt="请对{VAR_NAME} 绘制 EWMA（指数加权移动平均）趋势线。统一时间轴后，依据采样频率选择合适的 span（如 60 或 300），使用 pandas 的 ewm(span=...).mean() 计算趋势，并使用 matplotlib 将原始数据与 EWMA 趋势曲线叠加展示。",
     parameters=[],
     imports=["import matplotlib.pyplot as plt"],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     template="""
 # EWMA Trend for {VAR_NAME}
 df_trend = {VAR_NAME}.select_dtypes(include=['number']).copy()
@@ -153,6 +159,8 @@ trend_loess = Algorithm(
     prompt="请对{VAR_NAME} 绘制 LOESS 平滑趋势。将时间序列统一到同一采样频率后，使用 statsmodels.nonparametric.smoothers_lowess.lowess 进行平滑并绘制趋势曲线；若缺少该库，可退化为 rolling().mean()。图表需包含中文标题、轴标签与图例。",
     parameters=[],
     imports=["import statsmodels.api as sm", "import matplotlib.pyplot as plt", "import numpy as np"],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     template="""
 # LOESS Trend for {VAR_NAME}
 df_trend = {VAR_NAME}.select_dtypes(include=['number']).dropna().copy()
@@ -182,6 +190,8 @@ trend_polyfit = Algorithm(
     prompt="请对{VAR_NAME} 进行多项式趋势拟合并绘制趋势。将时间戳转换为连续时间序列（秒或索引），使用 numpy.polyfit 对 1~2 阶进行拟合，绘制拟合曲线与原始数据，并计算与输出拟合优度（R²）。",
     parameters=[],
     imports=["import numpy as np", "import matplotlib.pyplot as plt"],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     template="""
 # Polynomial Trend Fit for {VAR_NAME}
 df_trend = {VAR_NAME}.select_dtypes(include=['number']).dropna().copy()
@@ -211,6 +221,8 @@ trend_stl_trend = Algorithm(
     prompt="请对{VAR_NAME} 执行 STL 分解并提取趋势分量。统一采样频率后，使用 statsmodels.tsa.seasonal.STL 提取趋势，绘制趋势曲线并与原始数据对比显示；根据卫星遥测的特性选择合适的季节周期（如日照周期）。",
     parameters=[],
     imports=["from statsmodels.tsa.seasonal import STL", "import matplotlib.pyplot as plt", "import pandas as pd"],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     template="""
 # STL Trend Extraction for {VAR_NAME}
 df_stl = {VAR_NAME}.select_dtypes(include=['number']).copy()
@@ -245,6 +257,8 @@ trend_basic_stacked = Algorithm(
     prompt="请按照原始样式对 {VAR_NAME} 进行趋势绘制（分栏布局）。每个数值列单独占一行子图，统一时间轴。实现要点：\\n1) 推断采样频率并重采样为统一时间轴（如 '1S'）；\\n2) 仅对数值列绘图，数据量大时先降采样（如 1S/5S 或 rolling）；\\n3) 使用 matplotlib，添加中文标题、轴标签、网格与图例；\\n4) 若 {VAR_NAME} 为 Series，则直接在单个子图绘制。",
     parameters=[],
     imports=["import matplotlib.pyplot as plt"],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     template="""
 # Stacked Plot for {VAR_NAME}
 df_plot = {VAR_NAME}.select_dtypes(include=['number'])
@@ -270,6 +284,8 @@ trend_basic_overlay = Algorithm(
     prompt="请按照原始样式对 {VAR_NAME} 进行趋势绘制（叠加布局）。所有数值列绘制在同一坐标轴上并区分图例，统一时间轴。实现要点：\\n1) 推断采样频率并重采样为统一时间轴（如 '1S'）；\\n2) 仅对数值列绘图，数据量大时先降采样（如 1S/5S 或 rolling）；\\n3) 使用 matplotlib，添加中文标题、轴标签、网格与图例；\\n4) 若 {VAR_NAME} 为 Series，则直接在单图叠加绘制（仅一条曲线）。",
     parameters=[],
     imports=["import matplotlib.pyplot as plt"],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     template="""
 # Overlay Plot for {VAR_NAME}
 df_plot = {VAR_NAME}.select_dtypes(include=['number'])
@@ -292,6 +308,8 @@ trend_basic_grid = Algorithm(
     prompt="请按照原始样式对 {VAR_NAME} 进行趋势绘制（网格布局）。根据列数量自动计算行列数形成子图网格（如 2xN 或近似方阵），统一时间轴。实现要点：\\n1) 推断采样频率并重采样为统一时间轴（如 '1S'）；\\n2) 仅对数值列绘图，数据量大时先降采样（如 1S/5S 或 rolling）；\\n3) 使用 matplotlib，添加中文标题、轴标签、网格与图例；\\n4) 若 {VAR_NAME} 为 Series，则在单个子图绘制。",
     parameters=[],
     imports=["import matplotlib.pyplot as plt", "import math"],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     template="""
 # Grid Plot for {VAR_NAME}
 df_plot = {VAR_NAME}.select_dtypes(include=['number'])

@@ -1,4 +1,4 @@
-from .base import Algorithm, AlgorithmParameter
+from .base import Algorithm, AlgorithmParameter, Port
 
 select_columns = Algorithm(
     id="select_columns",
@@ -8,6 +8,8 @@ select_columns = Algorithm(
     parameters=[
         AlgorithmParameter(name="columns", type="list", default=[], label="选择列", description="要选择的列列表", widget="column-selector")
     ],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd"],
     template="""
 # Select Columns for {VAR_NAME}
@@ -33,6 +35,8 @@ filter_rows = Algorithm(
     parameters=[
         AlgorithmParameter(name="condition", type="str", default="", label="过滤条件", description="查询字符串 (例如 'age > 18')")
     ],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd"],
     template="""
 # Filter Rows for {VAR_NAME}
@@ -58,6 +62,8 @@ sort_values = Algorithm(
         AlgorithmParameter(name="by", type="list", default=[], label="排序依据", description="排序的依据列", widget="column-selector"),
         AlgorithmParameter(name="ascending", type="bool", default=True, label="升序", description="升序还是降序")
     ],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd"],
     template="""
 # Sort Values for {VAR_NAME}
@@ -83,6 +89,8 @@ groupby_agg = Algorithm(
         AlgorithmParameter(name="by", type="list", default=[], label="分组依据", description="分组的依据列", widget="column-selector"),
         AlgorithmParameter(name="agg_dict", type="dict", default={}, label="聚合字典", description="聚合配置字典 (例如 {'col': 'mean'})")
     ],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd", "import numpy as np"],
     template="""
 # GroupBy Aggregation for {VAR_NAME}
@@ -110,6 +118,8 @@ pivot_table = Algorithm(
         AlgorithmParameter(name="columns", type="list", default=[], label="列名列", description="列名列列表", widget="column-selector"),
         AlgorithmParameter(name="aggfunc", type="str", default="mean", label="聚合函数", description="聚合函数")
     ],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd", "import numpy as np"],
     template="""
 # Pivot Table for {VAR_NAME}
@@ -138,6 +148,8 @@ concat_dfs = Algorithm(
     parameters=[
         AlgorithmParameter(name="axis", type="int", default=0, label="轴向", description="拼接轴向 (0=行, 1=列)")
     ],
+    inputs=[Port(name="df1"), Port(name="df2")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd"],
     template="""
 # Concat DataFrames
@@ -163,6 +175,8 @@ rename_columns = Algorithm(
     parameters=[
         AlgorithmParameter(name="columns_map", type="dict", default={}, label="列名映射", description="旧名到新名的映射字典")
     ],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd"],
     template="""
 # Rename Columns for {VAR_NAME}
@@ -187,6 +201,8 @@ drop_duplicates = Algorithm(
         AlgorithmParameter(name="subset", type="list", default=[], label="子集", description="考虑重复的列子集", widget="column-selector"),
         AlgorithmParameter(name="keep", type="str", default="first", label="保留策略", options=["first", "last", "False"], description="保留哪个重复项")
     ],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd"],
     template="""
 # Drop Duplicates for {VAR_NAME}
@@ -216,6 +232,8 @@ fill_na = Algorithm(
         AlgorithmParameter(name="value", type="str", default=None, label="填充值", description="用于填充的常数值 (可选)"),
         AlgorithmParameter(name="method", type="enum", default=None, label="填充方法", options=["ffill", "bfill"], description="填充方法 (可选)")
     ],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd", "import numpy as np"],
     template="""
 # Fill Missing Values for {VAR_NAME}
@@ -247,6 +265,8 @@ astype = Algorithm(
     parameters=[
         AlgorithmParameter(name="dtype_map", type="dict", default={}, label="类型映射", description="列到类型的映射字典")
     ],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd"],
     template="""
 # Change Column Types for {VAR_NAME}
@@ -271,6 +291,8 @@ apply_func = Algorithm(
         AlgorithmParameter(name="func_code", type="str", default="lambda x: x", label="函数代码", description="函数或lambda的Python代码"),
         AlgorithmParameter(name="axis", type="int", default=0, label="轴向", description="应用轴向 (0或1)")
     ],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd", "import numpy as np"],
     template="""
 # Apply Function for {VAR_NAME}
@@ -296,3 +318,12 @@ algorithms = [
     select_columns, filter_rows, sort_values, groupby_agg, pivot_table,
     concat_dfs, rename_columns, drop_duplicates, fill_na, astype, apply_func
 ]
+
+
+
+
+
+
+
+
+

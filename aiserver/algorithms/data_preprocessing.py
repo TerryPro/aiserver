@@ -1,4 +1,4 @@
-from .base import Algorithm, AlgorithmParameter
+from .base import Algorithm, AlgorithmParameter, Port
 
 smoothing_sg = Algorithm(
     id="smoothing_sg",
@@ -9,6 +9,8 @@ smoothing_sg = Algorithm(
         AlgorithmParameter(name="window_length", type="int", default=11, label="窗口长度", description="必须是奇数且大于多项式阶数", min=3, step=2),
         AlgorithmParameter(name="polyorder", type="int", default=3, label="多项式阶数", description="用于拟合样本的多项式阶数", min=1, max=5)
     ],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd", "import numpy as np", "from scipy.signal import savgol_filter"],
     template="""
 # Savitzky-Golay Smoothing for {VAR_NAME}
@@ -39,6 +41,8 @@ smoothing_ma = Algorithm(
     parameters=[
         AlgorithmParameter(name="window_size", type="int", default=5, label="窗口大小", description="移动窗口的大小", min=1)
     ],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd", "import numpy as np"],
     template="""
 # Moving Average Smoothing for {VAR_NAME}
@@ -60,6 +64,8 @@ interpolation_time = Algorithm(
     category="data_preprocessing",
     prompt="请对{VAR_NAME} 的缺失值进行时间加权插值。不等间隔数据使用 pandas 的 interpolate(method='time') 以确保物理意义的准确性。",
     parameters=[],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd"],
     template="""
 # Time-weighted Interpolation for {VAR_NAME}
@@ -89,6 +95,8 @@ interpolation_spline = Algorithm(
     parameters=[
         AlgorithmParameter(name="order", type="int", default=3, label="样条阶数", description="样条插值的阶数", min=1, max=5)
     ],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd", "import numpy as np"],
     template="""
 # Spline Interpolation for {VAR_NAME}
@@ -116,6 +124,8 @@ resampling_down = Algorithm(
     parameters=[
         AlgorithmParameter(name="rule", type="str", default="1H", label="频率规则", description="目标频率 (例如 '1H', '1D', '15T')", options=["1T", "5T", "15T", "30T", "1H", "6H", "12H", "1D", "1W", "1M"])
     ],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd"],
     template="""
 # Downsampling (Aggregation) for {VAR_NAME}
@@ -147,6 +157,8 @@ alignment = Algorithm(
     category="data_preprocessing",
     prompt="请以 {VAR_NAME} 为基准执行多源时间对齐。使用 pandas 的 merge_asof 方法，将其他数据对齐到该时间轴。",
     parameters=[],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd"],
     template="""
 # Multi-source Data Alignment using {VAR_NAME} as baseline
@@ -174,7 +186,9 @@ feature_scaling = Algorithm(
     category="data_preprocessing",
     prompt="请对 {VAR_NAME} 进行特征缩放。提供 Z-Score 标准化和 Min-Max 归一化两种结果，便于后续模型训练。",
     parameters=[],
-    imports=["import pandas as pd", "from sklearn.preprocessing import StandardScaler, MinMaxScaler"],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
+    imports=["import pandas as pd", "from sklearn.preprocessing import StandardScaler", "MinMaxScaler"],
     template="""
 # Feature Scaling for {VAR_NAME}
 {OUTPUT_VAR} = {VAR_NAME}.select_dtypes(include=['number']).copy()
@@ -201,6 +215,8 @@ diff_transform = Algorithm(
     category="data_preprocessing",
     prompt="请对 {VAR_NAME} 进行一阶和二阶差分处理，以消除趋势并使数据平稳，绘制差分后的时序图。",
     parameters=[],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd", "import matplotlib.pyplot as plt"],
     template="""
 # Difference Transform for {VAR_NAME}
@@ -231,6 +247,8 @@ outlier_clip = Algorithm(
         AlgorithmParameter(name="lower_quantile", type="float", default=0.01, label="下分位数", description="裁剪下限 (0.0-1.0)", min=0.0, max=0.5, step=0.01),
         AlgorithmParameter(name="upper_quantile", type="float", default=0.99, label="上分位数", description="裁剪上限 (0.0-1.0)", min=0.5, max=1.0, step=0.01)
     ],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd"],
     template="""
 # Outlier Winsorization for {VAR_NAME}
@@ -255,8 +273,10 @@ feature_extraction_time = Algorithm(
     id="feature_extraction_time",
     name="时间特征提取",
     category="data_preprocessing",
-    prompt="请从 {VAR_NAME} 的时间索引中提取特征。生成‘小时’、‘星期几’、‘月份’、‘是否周末’等新列，用于机器学习模型输入。",
+    prompt="请从 {VAR_NAME} 的时间索引中提取特征。生成'小时'、'星期几'、'月份'、'是否周末'等新列，用于机器学习模型输入。",
     parameters=[],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd"],
     template="""
 # Time Feature Extraction for {VAR_NAME}
@@ -284,6 +304,8 @@ feature_lag = Algorithm(
     parameters=[
         AlgorithmParameter(name="max_lag", type="int", default=3, label="最大滞后阶数", description="生成的最大滞后阶数", min=1, max=24)
     ],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd"],
     template="""
 # Lag Feature Generation for {VAR_NAME}
@@ -309,6 +331,8 @@ transform_log = Algorithm(
     category="data_preprocessing",
     prompt="请对 {VAR_NAME} 进行对数变换。使用 log1p 处理以稳定方差，并绘制变换前后的分布对比图。",
     parameters=[],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd", "import numpy as np", "import matplotlib.pyplot as plt"],
     template="""
 # Log Transformation for {VAR_NAME}
@@ -348,6 +372,8 @@ filter_butterworth = Algorithm(
     category="data_preprocessing",
     prompt="请对 {VAR_NAME} 应用巴特沃斯低通滤波器。设置截止频率和阶数，去除高频噪声，保留主要趋势信号。",
     parameters=[],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     imports=["import pandas as pd", "import numpy as np", "from scipy.signal import butter, filtfilt", "import matplotlib.pyplot as plt"],
     template="""
 # Butterworth Lowpass Filter for {VAR_NAME}
@@ -392,6 +418,8 @@ merge_dfs = Algorithm(
         AlgorithmParameter(name="how", type="str", default="inner", label="合并方式", options=["inner", "outer", "left", "right"], description="执行合并的方式"),
         AlgorithmParameter(name="on", type="str", default="", label="合并列", description="用于连接的列名或索引级别名。留空则使用索引。", widget="column-selector")
     ],
+    inputs=[Port(name="left"), Port(name="right")],
+    outputs=[Port(name="merged")],
     imports=["import pandas as pd"],
     template="""
 # Merge DataFrames
@@ -427,6 +455,8 @@ train_test_split_algo = Algorithm(
         AlgorithmParameter(name="target_column", type="str", default="target", label="目标列", description="目标变量列名 (y)", widget="column-selector"),
         AlgorithmParameter(name="random_state", type="int", default=42, label="随机种子", description="控制拆分前的数据打乱")
     ],
+    inputs=[Port(name="data")],
+    outputs=[Port(name="X_train"), Port(name="X_test"), Port(name="y_train"), Port(name="y_test")],
     imports=["from sklearn.model_selection import train_test_split", "import pandas as pd"],
     template="""
 # Train/Test Split
@@ -457,3 +487,7 @@ algorithms = [
     alignment, feature_scaling, diff_transform, outlier_clip, feature_extraction_time,
     feature_lag, transform_log, filter_butterworth, merge_dfs, train_test_split_algo
 ]
+
+
+
+

@@ -17,14 +17,8 @@ def get_library_metadata():
     library = {}
     
     # Pre-fetch csv files from dataset directory
-    csv_files = []
-    dataset_path = os.path.join(os.getcwd(), 'dataset')
-    if os.path.exists(dataset_path):
-        try:
-            csv_files = [f for f in os.listdir(dataset_path) if f.endswith('.csv')]
-        except Exception as e:
-            print(f"Error listing dataset directory: {e}")
-            
+    csv_files = _get_csv_files()
+        
     for cat_id, label in CATEGORY_LABELS.items():
         library[label] = []
         
@@ -33,41 +27,47 @@ def get_library_metadata():
         
         for algo in category_algos:
             # Convert Algorithm to dictionary for frontend
-            args_list = []
-            for p in algo.parameters:
-                p_dict = p.to_dict()
-                # Populate options for file-selector
-                if p.widget == "file-selector" and not p_dict.get("options"):
-                    p_dict["options"] = csv_files
-                    # Set default if options available and default is generic
-                    if csv_files and (not p.default or "dataset/" in str(p.default)):
-                        p_dict["default"] = csv_files[0]
-                args_list.append(p_dict)
+            args_list = _process_algorithm_parameters(algo, csv_files)
 
-            # Derive ports and node type
-            has_output_var = "{OUTPUT_VAR}" in (algo.template or "")
-            needs_input = algo.category != "load_data"
-            inputs = [{"name": "df_in", "type": "DataFrame"}] if needs_input else []
-            outputs = (
-                [{"name": "df_out", "type": "DataFrame"}] if has_output_var else []
-            )
-
-            node_type = "generic"
-            if algo.id == "load_csv":
-                node_type = "csv_loader"
-
+            # Use algorithm-defined ports (all algorithms now have explicit ports)
+            ports_info = algo.to_port_dict()
+            
             algo_dict = {
                 "id": algo.id,
                 "name": algo.name,
-                "description": algo.prompt, # Using prompt as description
+                "description": algo.prompt,
                 "category": label,
                 "template": algo.template,
                 "imports": algo.imports,
                 "args": args_list,
-                "inputs": inputs,
-                "outputs": outputs,
-                "nodeType": node_type
+                "inputs": ports_info["inputs"],
+                "outputs": ports_info["outputs"],
+                "nodeType": "csv_loader" if algo.id == "load_csv" else "generic"
             }
             library[label].append(algo_dict)
             
     return library
+
+
+def _get_csv_files():
+    """Get CSV files from dataset directory."""
+    dataset_path = os.path.join(os.getcwd(), 'dataset')
+    try:
+        return [f for f in os.listdir(dataset_path) if f.endswith('.csv')] if os.path.exists(dataset_path) else []
+    except Exception:
+        return []
+
+
+def _process_algorithm_parameters(algo, csv_files):
+    """Process algorithm parameters and populate file options."""
+    args_list = []
+    for p in algo.parameters:
+        p_dict = p.to_dict()
+        # Populate options for file-selector
+        if p.widget == "file-selector" and not p_dict.get("options"):
+            p_dict["options"] = csv_files
+            # Set default if options available and default is generic
+            if csv_files and (not p.default or "dataset/" in str(p.default)):
+                p_dict["default"] = csv_files[0]
+        args_list.append(p_dict)
+    return args_list

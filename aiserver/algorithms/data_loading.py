@@ -1,4 +1,4 @@
-from .base import Algorithm, AlgorithmParameter
+from .base import Algorithm, AlgorithmParameter, Port
 
 load_csv = Algorithm(
     id="load_csv",
@@ -16,6 +16,8 @@ load_csv = Algorithm(
         )
     ],
     imports=["import pandas as pd", "import os"],
+    inputs=[],  # 加载CSV节点没有输入（起始节点）
+    outputs=[Port(name="df_out")],  # 加载CSV节点有输出
     template="""
 # Load CSV Data
 filepath = '{filepath}'
@@ -44,6 +46,8 @@ import_variable = Algorithm(
         )
     ],
     imports=["import pandas as pd"],
+    inputs=[],  # 引入变量节点没有输入
+    outputs=[Port(name="df_out")],  # 引入变量节点有输出
     template="""
 # Import Existing Variable
 # Source: {variable_name}
@@ -92,12 +96,31 @@ export_data = Algorithm(
         )
     ],
     imports=[],
+    inputs=[Port(name="df_in")],  # 引出变量节点有输入但无输出
+    outputs=[],  # 引出变量节点无输出
     template="""
 # Export {VAR_NAME} to Global Variable
 # Variable Name: {global_name}
-# This node acts as a pass-through in the flow
-{OUTPUT_VAR} = {VAR_NAME}
-print(f"Marked {VAR_NAME} for export to global variable: '{global_name}'")
+
+try:
+    # Get the input variable {VAR_NAME} from the local context
+    # {VAR_NAME} should be available as a local variable in this execution context
+    input_var = {VAR_NAME}
+    
+    # Export to global namespace using globals()
+    globals()['{global_name}'] = input_var
+    
+    print(f"Successfully exported {VAR_NAME} to global variable: '{global_name}'")
+    if hasattr(input_var, 'shape'):
+        print(f"Variable shape: {input_var.shape}")
+    if hasattr(input_var, 'head'):
+        print(f"Variable preview:")
+        display(input_var.head())
+        
+except NameError as e:
+    print(f"Error: Input variable {VAR_NAME} not found - {e}")
+except Exception as e:
+    print(f"Error exporting variable: {e}")
 """
 )
 

@@ -1,4 +1,4 @@
-from .base import Algorithm, AlgorithmParameter
+from .base import Algorithm, AlgorithmParameter, Port
 
 threshold_sigma = Algorithm(
     id="threshold_sigma",
@@ -7,6 +7,8 @@ threshold_sigma = Algorithm(
     prompt="请在 {VAR_NAME} 上应用 3-Sigma 异常检测。计算移动窗口均值与标准差，将超过 mean ± 3*std 的点标记为异常，并在原图用红色标记异常点。",
     parameters=[],
     imports=["import pandas as pd", "import matplotlib.pyplot as plt"],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     template="""
 # 3-Sigma Anomaly Detection for {VAR_NAME}
 df_anom = {VAR_NAME}.copy()
@@ -45,6 +47,8 @@ isolation_forest = Algorithm(
         AlgorithmParameter(name="contamination", type="float", default=0.05, label="污染率", description="预期的异常值比例", min=0.001, max=0.5, step=0.01)
     ],
     imports=["from sklearn.ensemble import IsolationForest", "import matplotlib.pyplot as plt", "import pandas as pd"],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     template="""
 # Isolation Forest Anomaly Detection for {VAR_NAME}
 df_iso = {VAR_NAME}.select_dtypes(include=['number']).dropna()
@@ -73,6 +77,8 @@ change_point = Algorithm(
     prompt="请在 {VAR_NAME} 中检测统计特性发生突变的时间点 (Change Point Detection)。可以使用 ruptures 库或基于滑动窗口的统计差异检测方法。",
     parameters=[],
     imports=["import matplotlib.pyplot as plt", "import ruptures as rpt", "import numpy as np"],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
     template="""
 # Change Point Detection for {VAR_NAME}
 # Uses binary segmentation with L2 cost
