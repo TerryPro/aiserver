@@ -416,16 +416,32 @@ class GetCSVColumnsHandler(APIHandler):
             self.set_status(500)
             self.finish(json.dumps({"error": str(e)}))
 
+class GetServerRootHandler(APIHandler):
+    # Removed @tornado.web.authenticated decorator to disable authentication
+    def get(self):
+        try:
+            # Jupyter Server is typically started from the project root
+            server_root = os.getcwd()
+            self.finish(json.dumps({"serverRoot": server_root}))
+        except Exception as e:
+            logger.error(f"Failed to get server root: {e}")
+            self.set_status(500)
+            self.finish(json.dumps({"error": str(e)}))
+
 def setup_handlers(web_app):
     host_pattern = ".*$"
-
+    
     base_url = web_app.settings["base_url"]
+    
+    # 定义路由
     handlers = [
-        (url_path_join(base_url, "aiserver", "get-example"), RouteHandler),
         (url_path_join(base_url, "aiserver", "generate"), GenerateHandler),
         (url_path_join(base_url, "aiserver", "analyze-dataframe"), AnalyzeDataFrameHandler),
         (url_path_join(base_url, "aiserver", "algorithm-prompts"), GetAlgorithmPromptsHandler),
         (url_path_join(base_url, "aiserver", "function-library"), GetFunctionLibraryHandler),
-        (url_path_join(base_url, "aiserver", "get-csv-columns"), GetCSVColumnsHandler)
+        (url_path_join(base_url, "aiserver", "get-csv-columns"), GetCSVColumnsHandler),
+        (url_path_join(base_url, "aiserver", "get-server-root"), GetServerRootHandler),
+        (url_path_join(base_url, "aiserver", "get-example"), RouteHandler)
     ]
+    
     web_app.add_handlers(host_pattern, handlers)
