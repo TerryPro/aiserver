@@ -44,6 +44,18 @@ def get_library_metadata():
                         p_dict["default"] = csv_files[0]
                 args_list.append(p_dict)
 
+            # Derive ports and node type
+            has_output_var = "{OUTPUT_VAR}" in (algo.template or "")
+            needs_input = algo.category != "load_data"
+            inputs = [{"name": "df_in", "type": "DataFrame"}] if needs_input else []
+            outputs = (
+                [{"name": "df_out", "type": "DataFrame"}] if has_output_var else []
+            )
+
+            node_type = "generic"
+            if algo.id == "load_csv":
+                node_type = "csv_loader"
+
             algo_dict = {
                 "id": algo.id,
                 "name": algo.name,
@@ -51,7 +63,10 @@ def get_library_metadata():
                 "category": label,
                 "template": algo.template,
                 "imports": algo.imports,
-                "args": args_list
+                "args": args_list,
+                "inputs": inputs,
+                "outputs": outputs,
+                "nodeType": node_type
             }
             library[label].append(algo_dict)
             
