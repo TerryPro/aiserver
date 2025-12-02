@@ -12,7 +12,17 @@ load_csv = Algorithm(
             default="dataset/data.csv",
             label="文件路径",
             description="CSV文件路径 (相对于项目根目录)",
-            widget="file-selector"
+            widget="file-selector",
+            priority="critical"
+        ),
+        AlgorithmParameter(
+            name="timeIndex",
+            type="str",
+            default="",
+            label="时间索引列",
+            description="选择作为时间索引的列名，为空则生成普通DataFrame",
+            widget="select",
+            priority="critical"
         )
     ],
     imports=["import pandas as pd", "import os"],
@@ -25,6 +35,17 @@ if not os.path.exists(filepath):
     print(f"Error: File not found at {filepath}")
 else:
     {OUTPUT_VAR} = pd.read_csv(filepath)
+    
+    # Set time index if specified
+    time_index_col = '{timeIndex}'
+    if time_index_col:
+        try:
+            {OUTPUT_VAR}[time_index_col] = pd.to_datetime({OUTPUT_VAR}[time_index_col])
+            {OUTPUT_VAR} = {OUTPUT_VAR}.set_index(time_index_col)
+            print(f"Set '{time_index_col}' as time index")
+        except Exception as e:
+            print(f"Failed to set time index: {e}")
+    
     print(f"Loaded {OUTPUT_VAR} with shape: {{OUTPUT_VAR}.shape}")
     display({OUTPUT_VAR}.head())
 """
@@ -42,7 +63,8 @@ import_variable = Algorithm(
             default="",
             label="变量名称",
             description="当前会话中的DataFrame变量名",
-            widget="variable-selector"
+            widget="variable-selector",
+            priority="critical"
         )
     ],
     imports=["import pandas as pd"],
@@ -92,7 +114,8 @@ export_data = Algorithm(
             type="str",
             default="exported_data",
             label="全局变量名",
-            description="引出的全局变量名称"
+            description="引出的全局变量名称",
+            priority="critical"
         )
     ],
     imports=[],

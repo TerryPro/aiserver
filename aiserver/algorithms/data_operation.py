@@ -53,93 +53,6 @@ except Exception as e:
 """
 )
 
-sort_values = Algorithm(
-    id="sort_values",
-    name="排序",
-    category="data_operation",
-    prompt="请对 {VAR_NAME} 进行排序。根据列 {by} 进行 {ascending} 排序。",
-    parameters=[
-        AlgorithmParameter(name="by", type="list", default=[], label="排序依据", description="排序的依据列", widget="column-selector"),
-        AlgorithmParameter(name="ascending", type="bool", default=True, label="升序", description="升序还是降序")
-    ],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")],
-    imports=["import pandas as pd"],
-    template="""
-# Sort Values for {VAR_NAME}
-{OUTPUT_VAR} = {VAR_NAME}.copy()
-by_columns = {by}
-ascending = {ascending}
-
-try:
-    {OUTPUT_VAR} = {OUTPUT_VAR}.sort_values(by=by_columns, ascending=ascending)
-    print(f"Sorted by {by_columns} (Ascending: {ascending})")
-    display({OUTPUT_VAR}.head())
-except Exception as e:
-    print(f"Sorting failed: {e}")
-"""
-)
-
-groupby_agg = Algorithm(
-    id="groupby_agg",
-    name="分组聚合",
-    category="data_operation",
-    prompt="请对 {VAR_NAME} 进行分组聚合。按 {by} 分组，并对 {agg_dict} 执行聚合操作。",
-    parameters=[
-        AlgorithmParameter(name="by", type="list", default=[], label="分组依据", description="分组的依据列", widget="column-selector"),
-        AlgorithmParameter(name="agg_dict", type="dict", default={}, label="聚合字典", description="聚合配置字典 (例如 {'col': 'mean'})")
-    ],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")],
-    imports=["import pandas as pd", "import numpy as np"],
-    template="""
-# GroupBy Aggregation for {VAR_NAME}
-{OUTPUT_VAR} = {VAR_NAME}.copy()
-by_columns = {by}
-agg_dict = {agg_dict}
-
-try:
-    {OUTPUT_VAR} = {OUTPUT_VAR}.groupby(by_columns).agg(agg_dict)
-    print(f"Grouped by {by_columns} and aggregated.")
-    display({OUTPUT_VAR}.head())
-except Exception as e:
-    print(f"GroupBy failed: {e}")
-"""
-)
-
-pivot_table = Algorithm(
-    id="pivot_table",
-    name="透视表",
-    category="data_operation",
-    prompt="请对 {VAR_NAME} 创建透视表。索引={index}, 列={columns}, 值={values}, 聚合函数={aggfunc}。",
-    parameters=[
-        AlgorithmParameter(name="values", type="str", default="", label="值列", description="要聚合的列", widget="column-selector"),
-        AlgorithmParameter(name="index", type="list", default=[], label="索引列", description="索引列列表", widget="column-selector"),
-        AlgorithmParameter(name="columns", type="list", default=[], label="列名列", description="列名列列表", widget="column-selector"),
-        AlgorithmParameter(name="aggfunc", type="str", default="mean", label="聚合函数", description="聚合函数")
-    ],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")],
-    imports=["import pandas as pd", "import numpy as np"],
-    template="""
-# Pivot Table for {VAR_NAME}
-{OUTPUT_VAR} = {VAR_NAME}.copy()
-
-try:
-    {OUTPUT_VAR} = pd.pivot_table(
-        {OUTPUT_VAR}, 
-        values={values}, 
-        index={index}, 
-        columns={columns}, 
-        aggfunc={aggfunc}
-    )
-    print("Pivot table created.")
-    display({OUTPUT_VAR}.head())
-except Exception as e:
-    print(f"Pivot table failed: {e}")
-"""
-)
-
 concat_dfs = Algorithm(
     id="concat_dfs",
     name="数据连接 (Concat)",
@@ -192,37 +105,6 @@ except Exception as e:
 """
 )
 
-drop_duplicates = Algorithm(
-    id="drop_duplicates",
-    name="去重",
-    category="data_operation",
-    prompt="请对 {VAR_NAME} 去除重复行。基于列 {subset} 判断重复，保留 {keep}。",
-    parameters=[
-        AlgorithmParameter(name="subset", type="list", default=[], label="子集", description="考虑重复的列子集", widget="column-selector"),
-        AlgorithmParameter(name="keep", type="str", default="first", label="保留策略", options=["first", "last", "False"], description="保留哪个重复项")
-    ],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")],
-    imports=["import pandas as pd"],
-    template="""
-# Drop Duplicates for {VAR_NAME}
-{OUTPUT_VAR} = {VAR_NAME}.copy()
-subset = {subset}
-keep = '{keep}'
-
-try:
-    initial_rows = {OUTPUT_VAR}.shape[0]
-    if not subset:
-        subset = None
-    {OUTPUT_VAR} = {OUTPUT_VAR}.drop_duplicates(subset=subset, keep=keep)
-    dropped_rows = initial_rows - {OUTPUT_VAR}.shape[0]
-    print(f"Dropped {dropped_rows} duplicate rows.")
-    display({OUTPUT_VAR}.head())
-except Exception as e:
-    print(f"Drop duplicates failed: {e}")
-"""
-)
-
 fill_na = Algorithm(
     id="fill_na",
     name="填充缺失值",
@@ -257,73 +139,88 @@ except Exception as e:
 """
 )
 
-astype = Algorithm(
-    id="astype",
-    name="类型转换",
+window_calculation = Algorithm(
+    id="window_calculation",
+    name="窗口计算",
     category="data_operation",
-    prompt="请对 {VAR_NAME} 的列进行类型转换。转换规则为 {dtype_map}。",
+    prompt="请对 {VAR_NAME} 进行窗口计算。使用窗口大小 {window} 对列 {columns} 应用 {func} 函数。",
     parameters=[
-        AlgorithmParameter(name="dtype_map", type="dict", default={}, label="类型映射", description="列到类型的映射字典")
+        AlgorithmParameter(name="columns", type="list", default=[], label="计算列", description="要计算的列，为空则使用所有数值列", widget="column-selector", priority="critical"),
+        AlgorithmParameter(name="window", type="int", default=10, label="窗口大小", description="移动窗口的大小", priority="critical"),
+        AlgorithmParameter(name="func", type="str", default="mean", label="统计函数", options=["sum", "mean", "min", "max", "std", "var"], description="要应用的统计函数", priority="critical"),
+        AlgorithmParameter(name="min_periods", type="int", default=1, label="最小观测值", description="窗口中需要的最小观测值数量", priority="non-critical"),
+        AlgorithmParameter(name="center", type="bool", default=False, label="居中窗口", description="是否居中窗口", priority="non-critical")
     ],
     inputs=[Port(name="df_in")],
     outputs=[Port(name="df_out")],
     imports=["import pandas as pd"],
     template="""
-# Change Column Types for {VAR_NAME}
+# Window Calculation for {VAR_NAME}
 {OUTPUT_VAR} = {VAR_NAME}.copy()
-dtype_map = {dtype_map}
+columns = {columns}
+window_size = {window}
+func = '{func}'
+min_periods = {min_periods}
+center = {center}
 
+# Select columns if specified, otherwise use all numeric columns
+if not columns:
+    columns = {OUTPUT_VAR}.select_dtypes(include=['number']).columns.tolist()
+
+# Apply rolling window function
 try:
-    {OUTPUT_VAR} = {OUTPUT_VAR}.astype(dtype_map)
-    print(f"Converted column types using map: {dtype_map}")
-    display({OUTPUT_VAR}.dtypes)
+    for col in columns:
+        {OUTPUT_VAR}[col] = {OUTPUT_VAR}[col].rolling(
+            window=window_size,
+            min_periods=min_periods,
+            center=center
+        ).{func}()
+    
+    print(f"Applied {func} with window size {window_size} to columns: {columns}")
+    display({OUTPUT_VAR}.head())
 except Exception as e:
-    print(f"Type conversion failed: {e}")
+    print(f"Window calculation failed: {e}")
 """
 )
 
-apply_func = Algorithm(
-    id="apply_func",
-    name="自定义函数 (Apply)",
+merge_dfs = Algorithm(
+    id="merge_dfs",
+    name="数据合并 (Merge)",
     category="data_operation",
-    prompt="请对 {VAR_NAME} 应用自定义函数。对 {axis} 轴应用函数 {func_code}。",
+    prompt="请合并两个数据框 {left} 和 {right}。根据指定的合并方式（inner, outer, left, right）和连接键进行 pd.merge 操作。",
     parameters=[
-        AlgorithmParameter(name="func_code", type="str", default="lambda x: x", label="函数代码", description="函数或lambda的Python代码"),
-        AlgorithmParameter(name="axis", type="int", default=0, label="轴向", description="应用轴向 (0或1)")
+        AlgorithmParameter(name="how", type="str", default="inner", label="合并方式", options=["inner", "outer", "left", "right"], description="执行合并的方式"),
+        AlgorithmParameter(name="on", type="str", default="", label="合并列", description="用于连接的列名或索引级别名。留空则使用索引。", widget="column-selector")
     ],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")],
-    imports=["import pandas as pd", "import numpy as np"],
+    inputs=[Port(name="left"), Port(name="right")],
+    outputs=[Port(name="merged")],
+    imports=["import pandas as pd"],
     template="""
-# Apply Function for {VAR_NAME}
-{OUTPUT_VAR} = {VAR_NAME}.copy()
-axis = {axis}
-# Define the function here or use lambda in func_code
-# Example func_code: "lambda x: x.sum()" or "np.sum"
+# Merge DataFrames
+# Inputs: {left}, {right}
+# Output: {merged}
+
+
 
 try:
-    func = {func_code}
-    {OUTPUT_VAR} = {OUTPUT_VAR}.apply(func, axis=axis)
-    print(f"Applied function along axis {axis}.")
-    # Note: Output might be Series or DataFrame depending on result
-    if isinstance({OUTPUT_VAR}, pd.Series):
-        {OUTPUT_VAR} = {OUTPUT_VAR}.to_frame()
-    display({OUTPUT_VAR}.head())
+    # Check if inputs are available
+    if '{left}' not in locals() or '{right}' not in locals():
+        print("Error: Input DataFrames not found.")
+    else:
+        on_col = '{on}'
+        if on_col == '':
+            # Merge on index if no column specified
+            {merged} = pd.merge({left}, {right}, how='{how}', left_index=True, right_index=True)
+        else:
+            {merged} = pd.merge({left}, {right}, how='{how}', on=on_col)
+            
+        print(f"Merged shape: {{merged}.shape}")
+        display({merged}.head())
 except Exception as e:
-    print(f"Apply failed: {e}")
+    print(f"Merge failed: {e}")
 """
 )
 
 algorithms = [
-    select_columns, filter_rows, sort_values, groupby_agg, pivot_table,
-    concat_dfs, rename_columns, drop_duplicates, fill_na, astype, apply_func
+    select_columns, filter_rows, concat_dfs, rename_columns, fill_na, window_calculation, merge_dfs
 ]
-
-
-
-
-
-
-
-
-

@@ -6,15 +6,16 @@ trend_plot = Algorithm(
     category="trend_plot",
     prompt="请根据配置绘制 {VAR_NAME} 的趋势图。支持自定义 X 轴、Y 轴列、标题、网格等设置。",
     parameters=[
-        AlgorithmParameter(name="x_column", type="str", default="", label="X轴列名", description="作为X轴的列 (留空则使用索引)", widget="column-selector"),
-        AlgorithmParameter(name="y_columns", type="list", default=[], label="Y轴列名", description="Y轴数据列 (留空则绘制所有数值列)", widget="column-selector"),
-        AlgorithmParameter(name="title", type="str", default="趋势图", label="图表标题", description="图表的标题"),
-        AlgorithmParameter(name="xlabel", type="str", default="", label="X轴标签", description="X轴的显示标签"),
-        AlgorithmParameter(name="ylabel", type="str", default="", label="Y轴标签", description="Y轴的显示标签"),
-        AlgorithmParameter(name="grid", type="bool", default=True, label="显示网格", description="是否显示背景网格"),
-        AlgorithmParameter(name="figsize", type="str", default="(10, 6)", label="图像尺寸", description="图像大小元组，例如 (10, 6)")
+        AlgorithmParameter(name="x_column", type="str", default="", label="X轴列名", description="作为X轴的列 (留空则使用索引)", widget="column-selector", priority="critical"),
+        AlgorithmParameter(name="y_columns", type="list", default=[], label="Y轴列名", description="Y轴数据列 (留空则绘制所有数值列)", widget="column-selector", priority="critical"),
+        AlgorithmParameter(name="plot_type", type="str", default="叠加显示", label="绘图方式", description="选择绘图方式: 叠加显示、堆叠显示、分栏显示或网格显示", widget="select", options=["叠加显示", "堆叠显示", "分栏显示", "网格显示"], priority="critical"),
+        AlgorithmParameter(name="title", type="str", default="趋势图", label="图表标题", description="图表的标题", priority="non-critical"),
+        AlgorithmParameter(name="xlabel", type="str", default="", label="X轴标签", description="X轴的显示标签", priority="non-critical"),
+        AlgorithmParameter(name="ylabel", type="str", default="", label="Y轴标签", description="Y轴的显示标签", priority="non-critical"),
+        AlgorithmParameter(name="grid", type="bool", default=True, label="显示网格", description="是否显示背景网格", priority="non-critical"),
+        AlgorithmParameter(name="figsize", type="str", default="", label="图像尺寸", description="图像大小元组，例如 (10, 6)。留空则自动适应CELL宽度", priority="non-critical")
     ],
-    imports=["import matplotlib.pyplot as plt", "import pandas as pd"],
+    imports=["import matplotlib.pyplot as plt", "import pandas as pd", "import math"],
     inputs=[Port(name="df_in")],
     outputs=[Port(name="df_out")],
     template="""
@@ -24,48 +25,92 @@ trend_plot = Algorithm(
 
 import matplotlib.pyplot as plt
 import pandas as pd
+import math
 
 {OUTPUT_VAR} = {VAR_NAME}
 
 try:
     # Configuration
     x_col = '{x_column}'
-    y_cols_str = '{y_columns}'
+    y_cols = {y_columns}
     title = '{title}'
     xlabel = '{xlabel}'
     ylabel = '{ylabel}'
     show_grid = {grid}
     figsize_str = '{figsize}'
+    plot_type = '{plot_type}'
     
     # Parse figsize
     try:
-        figsize = eval(figsize_str) if figsize_str else (10, 6)
+        if figsize_str:
+            figsize = eval(figsize_str)
+        else:
+            # Auto-adjust figsize based on plot type for better cell width fitting
+            if plot_type_en == 'overlay' or plot_type_en == 'stacked':
+                # Wider default for single plot to fit cell width
+                figsize = (15, 6)
+            elif plot_type_en == 'subplots':
+                # Taller default for subplots, width fits cell
+                figsize = (15, 3*len(y_cols))
+            elif plot_type_en == 'grid':
+                # Grid layout with auto-calculated size
+                n_rows = math.ceil(math.sqrt(len(y_cols)))
+                n_cols_grid = math.ceil(len(y_cols) / n_rows)
+                figsize = (18, 4*n_rows)  # Wider to fit cell width
+            else:
+                # Fallback default
+                figsize = (15, 6)
     except:
-        figsize = (10, 6)
+        # Fallback if parsing fails
+        figsize = (15, 6)
 
-    plt.figure(figsize=figsize)
+    # Convert Chinese plot_type to English for code logic
+    plot_type_en = plot_type
+    if plot_type == '叠加显示':
+        plot_type_en = 'overlay'
+    elif plot_type == '堆叠显示':
+        plot_type_en = 'stacked'
+    elif plot_type == '分栏显示':
+        plot_type_en = 'subplots'
+    elif plot_type == '网格显示':
+        plot_type_en = 'grid'
+
+    # Determine if the DataFrame is a time series
+    is_time_series = False
+    x_data = None
     
-    # Plotting
-    if x_col and x_col in {VAR_NAME}.columns:
-        # Convert to datetime if possible for better plotting
-        try:
-            x_data = pd.to_datetime({VAR_NAME}[x_col])
-        except Exception:
-            print(f"Warning: Could not convert column '{x_col}' to datetime. Using original values.")
-            x_data = {VAR_NAME}[x_col]
-    else:
+    # Check if index is a DatetimeIndex (most common case for time series)
+    if isinstance({VAR_NAME}.index, pd.DatetimeIndex):
+        is_time_series = True
         x_data = {VAR_NAME}.index
-        if x_col:
-            print(f"Warning: X column '{x_col}' not found, using index.")
-
-    # Parse Y columns
-    y_cols = []
-    if y_cols_str:
-        # Handle list string representation like "['a', 'b']" or "[]"
-        s = y_cols_str.strip()
-        if s.startswith('[') and s.endswith(']'):
-            s = s[1:-1]
-        y_cols = [c.strip().strip("'").strip('"') for c in s.split(',') if c.strip()]
+    
+    # If x_column is specified, use it instead of index
+    if x_col and x_col in {VAR_NAME}.columns:
+        # Check if the specified column is datetime-like
+        if pd.api.types.is_datetime64_any_dtype({VAR_NAME}[x_col]):
+            is_time_series = True
+            x_data = {VAR_NAME}[x_col]
+        else:
+            # Try to convert to datetime if it's not already
+            try:
+                x_data = pd.to_datetime({VAR_NAME}[x_col])
+                is_time_series = True
+                print(f"Converted column '{x_col}' to datetime")
+            except Exception:
+                print(f"Warning: Could not convert column '{x_col}' to datetime. Using original values.")
+                x_data = {VAR_NAME}[x_col]
+    elif x_col:
+        # x_column specified but not found, use index
+        print(f"Warning: X column '{x_col}' not found, using index.")
+        if isinstance({VAR_NAME}.index, pd.DatetimeIndex):
+            is_time_series = True
+        x_data = {VAR_NAME}.index
+    
+    # If x_data is still None (shouldn't happen), use index
+    if x_data is None:
+        x_data = {VAR_NAME}.index
+        if isinstance(x_data, pd.DatetimeIndex):
+            is_time_series = True
 
     if not y_cols:
         # If empty (or parsed as empty), fallback to numeric columns only
@@ -75,22 +120,98 @@ try:
     if x_col and x_col in y_cols:
         y_cols.remove(x_col)
 
-    for col in y_cols:
-        if col in {VAR_NAME}.columns:
-            plt.plot(x_data, {VAR_NAME}[col], label=col)
-        else:
-            print(f"Warning: Y column '{col}' not found.")
-
     # Support Chinese characters in title and labels if needed
     plt.rcParams['font.sans-serif'] = ['SimHei'] # Use SimHei for Chinese
     plt.rcParams['axes.unicode_minus'] = False   # Fix minus sign
 
-    plt.title(title)
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    plt.grid(show_grid)
-    plt.legend()
-    plt.tight_layout()
+    # Create plot based on plot_type_en
+    if plot_type_en == 'overlay':
+        # Overlay plot (default) - all lines on same axes
+        plt.figure(figsize=figsize)
+        for col in y_cols:
+            if col in {VAR_NAME}.columns:
+                plt.plot(x_data, {VAR_NAME}[col], label=col)
+            else:
+                print(f"Warning: Y column '{col}' not found.")
+        plt.title(title)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.grid(show_grid)
+        plt.legend()
+        plt.tight_layout()
+    
+    elif plot_type_en == 'stacked':
+        # Stacked plot - lines stacked on top of each other
+        plt.figure(figsize=figsize)
+        # Calculate cumulative sum for stacking
+        df_stacked = {VAR_NAME}[y_cols].cumsum(axis=1)
+        for i, col in enumerate(y_cols):
+            if col in {VAR_NAME}.columns:
+                if i == 0:
+                    # First column is plotted from 0
+                    plt.fill_between(x_data, 0, df_stacked[col], label=col, alpha=0.7)
+                else:
+                    # Subsequent columns are plotted from previous cumulative sum
+                    plt.fill_between(x_data, df_stacked[y_cols[i-1]], df_stacked[col], label=col, alpha=0.7)
+            else:
+                print(f"Warning: Y column '{col}' not found.")
+        plt.title(title)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.grid(show_grid)
+        plt.legend()
+        plt.tight_layout()
+    
+    elif plot_type_en == 'subplots':
+        # Subplots - each line in its own subplot, stacked vertically
+        n_cols = len(y_cols)
+        fig, axes = plt.subplots(n_cols, 1, figsize=(figsize[0], 3*n_cols), sharex=True)
+        if n_cols == 1:
+            axes = [axes]
+        
+        for i, col in enumerate(y_cols):
+            if col in {VAR_NAME}.columns:
+                axes[i].plot(x_data, {VAR_NAME}[col], label=col)
+                axes[i].set_title(col)
+                axes[i].grid(show_grid)
+                axes[i].legend()
+            else:
+                print(f"Warning: Y column '{col}' not found.")
+        
+        plt.suptitle(title, y=0.99, fontsize=16)
+        plt.xlabel(xlabel)
+        plt.tight_layout()
+    
+    elif plot_type_en == 'grid':
+        # Grid plot - each line in its own subplot, arranged in a grid
+        n_cols = len(y_cols)
+        if n_cols == 0:
+            print("No Y columns selected for plotting.")
+        else:
+            # Calculate grid size
+            n_rows = math.ceil(math.sqrt(n_cols))
+            n_cols_grid = math.ceil(n_cols / n_rows)
+            
+            fig, axes = plt.subplots(n_rows, n_cols_grid, figsize=(figsize[0]*n_cols_grid/2, figsize[1]*n_rows/2))
+            axes = axes.flatten()
+            
+            for i in range(len(axes)):
+                if i < n_cols:
+                    col = y_cols[i]
+                    if col in {VAR_NAME}.columns:
+                        axes[i].plot(x_data, {VAR_NAME}[col], label=col)
+                        axes[i].set_title(col)
+                        axes[i].grid(show_grid)
+                        axes[i].legend()
+                    else:
+                        print(f"Warning: Y column '{col}' not found.")
+                else:
+                    # Hide unused subplots
+                    axes[i].axis('off')
+            
+            plt.suptitle(title, y=0.99, fontsize=16)
+            plt.tight_layout()
+    
     plt.show()
 
 except Exception as e:
@@ -250,93 +371,7 @@ except Exception as e:
 """
 )
 
-trend_basic_stacked = Algorithm(
-    id="trend_basic_stacked",
-    name="基础趋势绘制（分栏）",
-    category="trend_plot",
-    prompt="请按照原始样式对 {VAR_NAME} 进行趋势绘制（分栏布局）。每个数值列单独占一行子图，统一时间轴。实现要点：\\n1) 推断采样频率并重采样为统一时间轴（如 '1S'）；\\n2) 仅对数值列绘图，数据量大时先降采样（如 1S/5S 或 rolling）；\\n3) 使用 matplotlib，添加中文标题、轴标签、网格与图例；\\n4) 若 {VAR_NAME} 为 Series，则直接在单个子图绘制。",
-    parameters=[],
-    imports=["import matplotlib.pyplot as plt"],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")],
-    template="""
-# Stacked Plot for {VAR_NAME}
-df_plot = {VAR_NAME}.select_dtypes(include=['number'])
-cols = df_plot.columns
-
-fig, axes = plt.subplots(len(cols), 1, figsize=(12, 3*len(cols)), sharex=True)
-if len(cols) == 1: axes = [axes]
-
-for i, col in enumerate(cols):
-    axes[i].plot(df_plot.index, df_plot[col])
-    axes[i].set_title(col)
-    axes[i].grid(True, alpha=0.3)
-
-plt.tight_layout()
-plt.show()
-"""
-)
-
-trend_basic_overlay = Algorithm(
-    id="trend_basic_overlay",
-    name="基础趋势绘制（叠加）",
-    category="trend_plot",
-    prompt="请按照原始样式对 {VAR_NAME} 进行趋势绘制（叠加布局）。所有数值列绘制在同一坐标轴上并区分图例，统一时间轴。实现要点：\\n1) 推断采样频率并重采样为统一时间轴（如 '1S'）；\\n2) 仅对数值列绘图，数据量大时先降采样（如 1S/5S 或 rolling）；\\n3) 使用 matplotlib，添加中文标题、轴标签、网格与图例；\\n4) 若 {VAR_NAME} 为 Series，则直接在单图叠加绘制（仅一条曲线）。",
-    parameters=[],
-    imports=["import matplotlib.pyplot as plt"],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")],
-    template="""
-# Overlay Plot for {VAR_NAME}
-df_plot = {VAR_NAME}.select_dtypes(include=['number'])
-
-plt.figure(figsize=(14, 7))
-for col in df_plot.columns:
-    plt.plot(df_plot.index, df_plot[col], label=col, alpha=0.7)
-
-plt.title(f'Overlay Trend: {VAR_NAME}')
-plt.legend()
-plt.grid(True, alpha=0.3)
-plt.show()
-"""
-)
-
-trend_basic_grid = Algorithm(
-    id="trend_basic_grid",
-    name="基础趋势绘制（网格）",
-    category="trend_plot",
-    prompt="请按照原始样式对 {VAR_NAME} 进行趋势绘制（网格布局）。根据列数量自动计算行列数形成子图网格（如 2xN 或近似方阵），统一时间轴。实现要点：\\n1) 推断采样频率并重采样为统一时间轴（如 '1S'）；\\n2) 仅对数值列绘图，数据量大时先降采样（如 1S/5S 或 rolling）；\\n3) 使用 matplotlib，添加中文标题、轴标签、网格与图例；\\n4) 若 {VAR_NAME} 为 Series，则在单个子图绘制。",
-    parameters=[],
-    imports=["import matplotlib.pyplot as plt", "import math"],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")],
-    template="""
-# Grid Plot for {VAR_NAME}
-df_plot = {VAR_NAME}.select_dtypes(include=['number'])
-cols = df_plot.columns
-n_cols = len(cols)
-
-# Calculate grid size
-n_rows_grid = math.ceil(math.sqrt(n_cols))
-n_cols_grid = math.ceil(n_cols / n_rows_grid)
-
-fig, axes = plt.subplots(n_rows_grid, n_cols_grid, figsize=(15, 5*n_rows_grid))
-axes = axes.flatten()
-
-for i in range(len(axes)):
-    if i < n_cols:
-        axes[i].plot(df_plot.index, df_plot[cols[i]])
-        axes[i].set_title(cols[i])
-        axes[i].grid(True, alpha=0.3)
-    else:
-        axes[i].axis('off')
-
-plt.tight_layout()
-plt.show()
-"""
-)
-
 algorithms = [
     trend_plot, trend_ma, trend_ewma, trend_loess, trend_polyfit,
-    trend_stl_trend, trend_basic_stacked, trend_basic_overlay, trend_basic_grid
+    trend_stl_trend
 ]

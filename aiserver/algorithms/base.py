@@ -18,6 +18,7 @@ class AlgorithmParameter:
     step: Optional[float] = None
     options: Optional[List[str]] = None
     widget: Optional[str] = None
+    priority: str = "non-critical"  # critical or non-critical
 
     def to_dict(self):
         d = {
@@ -25,7 +26,8 @@ class AlgorithmParameter:
             "type": self.type,
             "default": self.default,
             "label": self.label,
-            "description": self.description
+            "description": self.description,
+            "priority": self.priority
         }
         if self.min is not None: d["min"] = self.min
         if self.max is not None: d["max"] = self.max

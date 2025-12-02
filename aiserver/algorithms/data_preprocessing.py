@@ -1,99 +1,12 @@
 from .base import Algorithm, AlgorithmParameter, Port
 
-smoothing_sg = Algorithm(
-    id="smoothing_sg",
-    name="Savitzky-Golay 平滑",
-    category="data_preprocessing",
-    prompt="请对{VAR_NAME} 执行 Savitzky-Golay 平滑处理。使用 scipy.signal.savgol_filter 去除高频噪声并保留波形特征，并根据数据特性选择或建议合适的窗口长度与多项式阶数。",
-    parameters=[
-        AlgorithmParameter(name="window_length", type="int", default=11, label="窗口长度", description="必须是奇数且大于多项式阶数", min=3, step=2),
-        AlgorithmParameter(name="polyorder", type="int", default=3, label="多项式阶数", description="用于拟合样本的多项式阶数", min=1, max=5)
-    ],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")],
-    imports=["import pandas as pd", "import numpy as np", "from scipy.signal import savgol_filter"],
-    template="""
-# Savitzky-Golay Smoothing for {VAR_NAME}
-# Note: window_length must be odd and greater than polyorder
-{OUTPUT_VAR} = {VAR_NAME}.copy()
-numeric_cols = {OUTPUT_VAR}.select_dtypes(include=[np.number]).columns
-window_length = {window_length}  # Adjust based on data frequency
-polyorder = {polyorder}
-
-for col in numeric_cols:
-    try:
-        # Handle missing values before smoothing
-        series = {OUTPUT_VAR}[col].interpolate(method='linear').fillna(method='bfill').fillna(method='ffill')
-        {OUTPUT_VAR}[f'{col}_sg'] = savgol_filter(series, window_length, polyorder)
-    except Exception as e:
-        print(f"Could not smooth column {col}: {e}")
-
-# Display first few rows
-{OUTPUT_VAR}.head()
-"""
-)
-
-smoothing_ma = Algorithm(
-    id="smoothing_ma",
-    name="移动平均平滑",
-    category="data_preprocessing",
-    prompt="请对{VAR_NAME} 执行移动平均平滑。使用 pandas 的 rolling().mean() 方法，并根据采样频率选择合理的窗口大小。",
-    parameters=[
-        AlgorithmParameter(name="window_size", type="int", default=5, label="窗口大小", description="移动窗口的大小", min=1)
-    ],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")],
-    imports=["import pandas as pd", "import numpy as np"],
-    template="""
-# Moving Average Smoothing for {VAR_NAME}
-{OUTPUT_VAR} = {VAR_NAME}.copy()
-numeric_cols = {OUTPUT_VAR}.select_dtypes(include=[np.number]).columns
-window_size = {window_size}  # Adjust window size as needed
-
-for col in numeric_cols:
-    {OUTPUT_VAR}[f'{col}_ma'] = {OUTPUT_VAR}[col].rolling(window=window_size, center=True).mean()
-
-# Display first few rows
-{OUTPUT_VAR}.head()
-"""
-)
-
-interpolation_time = Algorithm(
-    id="interpolation_time",
-    name="时间加权插值",
-    category="data_preprocessing",
-    prompt="请对{VAR_NAME} 的缺失值进行时间加权插值。不等间隔数据使用 pandas 的 interpolate(method='time') 以确保物理意义的准确性。",
-    parameters=[],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")],
-    imports=["import pandas as pd"],
-    template="""
-# Time-weighted Interpolation for {VAR_NAME}
-# Requires a DatetimeIndex for 'time' method
-{OUTPUT_VAR} = {VAR_NAME}.copy()
-
-# Ensure index is datetime if possible, otherwise use index
-if not isinstance({OUTPUT_VAR}.index, pd.DatetimeIndex):
-    print("Warning: Index is not DatetimeIndex. Using linear interpolation instead of time-weighted.")
-    method = 'linear'
-else:
-    method = 'time'
-
-{OUTPUT_VAR} = {OUTPUT_VAR}.interpolate(method=method)
-
-# Check remaining missing values
-print("Remaining missing values:\\n", {OUTPUT_VAR}.isnull().sum())
-{OUTPUT_VAR}.head()
-"""
-)
-
 interpolation_spline = Algorithm(
     id="interpolation_spline",
     name="样条插值",
     category="data_preprocessing",
     prompt="请对{VAR_NAME} 进行样条插值 (Spline)。使用 pandas 的 interpolate(method='spline', order=3) 以获得更平滑的补全曲线。",
     parameters=[
-        AlgorithmParameter(name="order", type="int", default=3, label="样条阶数", description="样条插值的阶数", min=1, max=5)
+        AlgorithmParameter(name="order", type="int", default=3, label="样条阶数", description="样条插值的阶数", min=1, max=5, priority="critical")
     ],
     inputs=[Port(name="df_in")],
     outputs=[Port(name="df_out")],
@@ -118,11 +31,12 @@ except Exception as e:
 
 resampling_down = Algorithm(
     id="resampling_down",
-    name="降采样 (聚合)",
+    name="降采样",
     category="data_preprocessing",
     prompt="请对{VAR_NAME} 进行降采样聚合。使用 pandas 的 resample() 将数据聚合到更低的时间分辨率（例如 '1min' 或 '1H'）；数值列使用 mean()，状态列使用 last() 或 max()。",
     parameters=[
-        AlgorithmParameter(name="rule", type="str", default="1H", label="频率规则", description="目标频率 (例如 '1H', '1D', '15T')", options=["1T", "5T", "15T", "30T", "1H", "6H", "12H", "1D", "1W", "1M"])
+        AlgorithmParameter(name="rule", type="str", default="1小时", label="频率规则", description="目标重采样频率", options=["15秒", "30秒", "1分钟", "5分钟", "15分钟", "30分钟", "1小时"], priority="critical"),
+        AlgorithmParameter(name="agg_method", type="str", default="均值", label="聚合方法", options=["均值", "求和", "最小值", "最大值", "第一个值", "最后一个值", "中位数", "标准差", "方差", "计数"], description="降采样时使用的聚合函数", priority="critical")
     ],
     inputs=[Port(name="df_in")],
     outputs=[Port(name="df_out")],
@@ -133,18 +47,45 @@ resampling_down = Algorithm(
 {OUTPUT_VAR} = {VAR_NAME}.copy()
 
 if isinstance({OUTPUT_VAR}.index, pd.DatetimeIndex):
-    rule = '{rule}'  # Target frequency: 1 Hour, change to '1T' for 1 min, '1D' for 1 day
+    # Map Chinese frequency to pandas frequency string
+    freq_map = {
+        "15秒": "15s",
+        "30秒": "30s",
+        "1分钟": "1T",
+        "5分钟": "5T",
+        "15分钟": "15T",
+        "30分钟": "30T",
+        "1小时": "1H"
+    }
     
-    # Define aggregation dictionary: mean for numeric, first/mode for others
-    agg_dict = {}
-    for col in {OUTPUT_VAR}.columns:
-        if pd.api.types.is_numeric_dtype({OUTPUT_VAR}[col]):
-            agg_dict[col] = 'mean'
-        else:
-            agg_dict[col] = 'first'
+    # Map Chinese aggregation method to pandas function name
+    agg_method_map = {
+        "均值": "mean",
+        "求和": "sum",
+        "最小值": "min",
+        "最大值": "max",
+        "第一个值": "first",
+        "最后一个值": "last",
+        "中位数": "median",
+        "标准差": "std",
+        "方差": "var",
+        "计数": "count"
+    }
+    
+    # Get selected frequency in Chinese and map to pandas frequency
+    chinese_rule = '{rule}'
+    pandas_rule = freq_map.get(chinese_rule, "15s")  # Default to 1H if not found
+    
+    # Get selected aggregation method in Chinese and map to pandas function
+    chinese_agg_method = '{agg_method}'
+    agg_method = agg_method_map.get(chinese_agg_method, "mean")  # Default to mean if not found
+    
+    # Define aggregation dictionary: use selected method for all columns
+    agg_dict = {col: agg_method for col in {OUTPUT_VAR}.columns}
             
-    {OUTPUT_VAR} = {OUTPUT_VAR}.resample(rule).agg(agg_dict)
-    print(f"Resampled to {rule} frequency. New shape: {{OUTPUT_VAR}.shape}")
+    {OUTPUT_VAR} = {OUTPUT_VAR}.resample(pandas_rule).agg(agg_dict)
+    print(f"Resampled to {chinese_rule} ({pandas_rule}) frequency. New shape: {{OUTPUT_VAR}.shape}")
+    print(f"Aggregation method: {chinese_agg_method} ({agg_method})")
     display({OUTPUT_VAR}.head())
 else:
     print("Error: {VAR_NAME} index is not a DatetimeIndex. Cannot resample.")
@@ -184,28 +125,68 @@ feature_scaling = Algorithm(
     id="feature_scaling",
     name="数据标准化/归一化",
     category="data_preprocessing",
-    prompt="请对 {VAR_NAME} 进行特征缩放。提供 Z-Score 标准化和 Min-Max 归一化两种结果，便于后续模型训练。",
-    parameters=[],
+    prompt="请对 {VAR_NAME} 进行特征缩放。支持多种缩放方法，直接修改原始列。",
+    parameters=[
+        AlgorithmParameter(name="method", type="str", default="standard", label="缩放方法", options=["standard", "minmax", "robust", "maxabs"], description="选择缩放方法：standard（Z-score）、minmax（0-1归一化）、robust（鲁棒缩放）、maxabs（最大绝对值缩放）", priority="critical"),
+        AlgorithmParameter(name="with_mean", type="bool", default=True, label="包含均值", description="对于standard和robust方法，是否减去均值", priority="non-critical"),
+        AlgorithmParameter(name="with_std", type="bool", default=True, label="包含标准差", description="对于standard方法，是否除以标准差", priority="non-critical"),
+        AlgorithmParameter(name="feature_range", type="str", default="(0, 1)", label="特征范围", description="对于minmax方法，指定目标范围，格式为'(min, max)'", priority="non-critical")
+    ],
     inputs=[Port(name="df_in")],
     outputs=[Port(name="df_out")],
-    imports=["import pandas as pd", "from sklearn.preprocessing import StandardScaler", "MinMaxScaler"],
+    imports=["import pandas as pd", "from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, MaxAbsScaler"],
     template="""
 # Feature Scaling for {VAR_NAME}
-{OUTPUT_VAR} = {VAR_NAME}.select_dtypes(include=['number']).copy()
-cols = {OUTPUT_VAR}.columns
+{OUTPUT_VAR} = {VAR_NAME}.copy()
 
-# 1. Z-Score Standardization
-scaler_std = StandardScaler()
-df_std = pd.DataFrame(scaler_std.fit_transform({OUTPUT_VAR}), index={OUTPUT_VAR}.index, columns=[f"{c}_std" for c in cols])
-
-# 2. Min-Max Normalization
-scaler_minmax = MinMaxScaler()
-df_minmax = pd.DataFrame(scaler_minmax.fit_transform({OUTPUT_VAR}), index={OUTPUT_VAR}.index, columns=[f"{c}_minmax" for c in cols])
-
-# Combine results
-{OUTPUT_VAR} = pd.concat([{OUTPUT_VAR}, df_std, df_minmax], axis=1)
-print("Scaling completed. Added _std and _minmax columns.")
-display({OUTPUT_VAR}.head())
+# Select numeric columns only
+numeric_cols = {OUTPUT_VAR}.select_dtypes(include=['number']).columns
+if not numeric_cols.empty:
+    # Get parameters
+    method = '{method}'
+    with_mean = {with_mean}
+    with_std = {with_std}
+    feature_range_str = '{feature_range}'
+    
+    # Parse feature range
+    try:
+        if feature_range_str.startswith('(') and feature_range_str.endswith(')'):
+            feature_range = tuple(map(float, feature_range_str[1:-1].split(',')))
+        else:
+            feature_range = (0, 1)  # Default
+    except:
+        feature_range = (0, 1)  # Fallback
+    
+    # Apply selected scaler
+    try:
+        if method == 'standard':
+            scaler = StandardScaler(with_mean=with_mean, with_std=with_std)
+        elif method == 'minmax':
+            scaler = MinMaxScaler(feature_range=feature_range)
+        elif method == 'robust':
+            scaler = RobustScaler(with_centering=with_mean, with_scaling=with_std)
+        elif method == 'maxabs':
+            scaler = MaxAbsScaler()
+        else:
+            scaler = StandardScaler()  # Fallback
+        
+        # Scale in-place on original columns
+        {OUTPUT_VAR}[numeric_cols] = scaler.fit_transform({OUTPUT_VAR}[numeric_cols])
+        
+        print(f"Applied {method} scaling to {len(numeric_cols)} columns")
+        if method == 'standard':
+            print(f"  with_mean: {with_mean}, with_std: {with_std}")
+        elif method == 'minmax':
+            print(f"  feature_range: {feature_range}")
+        elif method == 'robust':
+            print(f"  with_centering: {with_mean}, with_scaling: {with_std}")
+        
+        print(f"New shape: {{OUTPUT_VAR}.shape}")
+        display({OUTPUT_VAR}.head())
+    except Exception as e:
+        print(f"Scaling failed: {e}")
+else:
+    print("No numeric columns found for scaling")
 """
 )
 
@@ -213,281 +194,134 @@ diff_transform = Algorithm(
     id="diff_transform",
     name="差分变换",
     category="data_preprocessing",
-    prompt="请对 {VAR_NAME} 进行一阶和二阶差分处理，以消除趋势并使数据平稳，绘制差分后的时序图。",
-    parameters=[],
+    prompt="请对 {VAR_NAME} 进行差分变换，以消除趋势并使数据平稳。可配置差分阶数和滞后步数。",
+    parameters=[
+        AlgorithmParameter(name="order", type="int", default=1, label="差分阶数", description="差分的阶数，1为一阶差分，2为二阶差分等", min=1, max=5, step=1, priority="critical"),
+        AlgorithmParameter(name="periods", type="int", default=1, label="滞后步数", description="差分的滞后步数，默认1", min=1, max=10, step=1, priority="critical"),
+        AlgorithmParameter(name="axis", type="int", default=0, label="差分轴", options=[0, 1], description="沿哪个轴进行差分，0=行（时间轴），1=列", min=0, max=1, step=1, priority="non-critical"),
+        AlgorithmParameter(name="fill_method", type="str", default="", label="填充方法", options=["", "ffill", "bfill"], description="差分后缺失值的填充方法，留空则不填充", priority="non-critical")
+    ],
     inputs=[Port(name="df_in")],
     outputs=[Port(name="df_out")],
-    imports=["import pandas as pd", "import matplotlib.pyplot as plt"],
+    imports=["import pandas as pd"],
     template="""
 # Difference Transform for {VAR_NAME}
 {OUTPUT_VAR} = {VAR_NAME}.select_dtypes(include=['number']).copy()
 
-# 1st Order Difference
-df_diff_1 = {OUTPUT_VAR}.diff(1)
-# 2nd Order Difference
-df_diff_2 = {OUTPUT_VAR}.diff(2)
+# Apply difference transform
+order = {order}
+periods = {periods}
+axis = {axis}
+fill_method = '{fill_method}'
 
-# Plotting
-fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
-{OUTPUT_VAR}.plot(ax=axes[0], title="Original Data")
-df_diff_1.plot(ax=axes[1], title="1st Order Difference")
-df_diff_2.plot(ax=axes[2], title="2nd Order Difference")
-
-plt.tight_layout()
-plt.show()
+# Perform difference transform
+try:
+    # Apply difference multiple times for higher orders
+    for i in range(order):
+        {OUTPUT_VAR} = {OUTPUT_VAR}.diff(periods=periods, axis=axis)
+    
+    # Fill missing values if specified
+    if fill_method:
+        {OUTPUT_VAR} = {OUTPUT_VAR}.fillna(method=fill_method)
+    
+    print(f"Applied {order}nd order difference with periods={periods} along axis={axis}")
+    if fill_method:
+        print(f"Filled missing values using {fill_method}")
+    print(f"New shape: {{OUTPUT_VAR}.shape}")
+    display({OUTPUT_VAR}.head())
+except Exception as e:
+    print(f"Difference transform failed: {e}")
 """
 )
 
-outlier_clip = Algorithm(
-    id="outlier_clip",
-    name="离群值盖帽 (Winsorization)",
+data_fill = Algorithm(
+    id="data_fill",
+    name="数据填充",
     category="data_preprocessing",
-    prompt="请对 {VAR_NAME} 进行离群值盖帽处理。将超出 1% 和 99% 分位数的值限制在边界范围内，以减少极端值的影响。",
+    prompt="请对 {VAR_NAME} 进行缺失值填充。支持多种填充方法，包括均值、中位数、众数、前向填充、后向填充、常数填充等。",
     parameters=[
-        AlgorithmParameter(name="lower_quantile", type="float", default=0.01, label="下分位数", description="裁剪下限 (0.0-1.0)", min=0.0, max=0.5, step=0.01),
-        AlgorithmParameter(name="upper_quantile", type="float", default=0.99, label="上分位数", description="裁剪上限 (0.0-1.0)", min=0.5, max=1.0, step=0.01)
+        AlgorithmParameter(name="method", type="str", default="均值", label="填充方法", options=["均值", "中位数", "众数", "前向填充", "后向填充", "常数", "线性插值", "最近邻插值"], description="选择缺失值填充方法", priority="critical"),
+        AlgorithmParameter(name="value", type="float", default=0.0, label="填充值", description="当使用常数填充时，指定填充的值", priority="non-critical"),
+        AlgorithmParameter(name="axis", type="int", default=0, label="填充轴", options=[0, 1], description="沿哪个轴进行填充，0=按列填充，1=按行填充", priority="non-critical"),
+        AlgorithmParameter(name="limit", type="int", default=0, label="填充限制", description="限制连续缺失值的填充数量，0表示无限制", min=0, max=1000, priority="non-critical")
     ],
     inputs=[Port(name="df_in")],
     outputs=[Port(name="df_out")],
     imports=["import pandas as pd"],
     template="""
-# Outlier Winsorization for {VAR_NAME}
-{OUTPUT_VAR} = {VAR_NAME}.copy()
-numeric_cols = {OUTPUT_VAR}.select_dtypes(include=['number']).columns
-
-for col in numeric_cols:
-    # Calculate bounds
-    lower = {OUTPUT_VAR}[col].quantile(0.01)
-    upper = {OUTPUT_VAR}[col].quantile(0.99)
-    
-    # Clip
-    {OUTPUT_VAR}[f'{col}_clipped'] = {OUTPUT_VAR}[col].clip(lower=lower, upper=upper)
-    
-    print(f"Column {col}: Clipped to [{lower:.4f}, {upper:.4f}]")
-
-display({OUTPUT_VAR}.head())
-"""
-)
-
-feature_extraction_time = Algorithm(
-    id="feature_extraction_time",
-    name="时间特征提取",
-    category="data_preprocessing",
-    prompt="请从 {VAR_NAME} 的时间索引中提取特征。生成'小时'、'星期几'、'月份'、'是否周末'等新列，用于机器学习模型输入。",
-    parameters=[],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")],
-    imports=["import pandas as pd"],
-    template="""
-# Time Feature Extraction for {VAR_NAME}
+# Data Fill for {VAR_NAME}
 {OUTPUT_VAR} = {VAR_NAME}.copy()
 
-if isinstance({OUTPUT_VAR}.index, pd.DatetimeIndex):
-    {OUTPUT_VAR}['hour'] = {OUTPUT_VAR}.index.hour
-    {OUTPUT_VAR}['dayofweek'] = {OUTPUT_VAR}.index.dayofweek
-    {OUTPUT_VAR}['month'] = {OUTPUT_VAR}.index.month
-    {OUTPUT_VAR}['quarter'] = {OUTPUT_VAR}.index.quarter
-    {OUTPUT_VAR}['is_weekend'] = {OUTPUT_VAR}.index.dayofweek.isin([5, 6]).astype(int)
-    
-    print("Time features added:")
-    display({OUTPUT_VAR}[['hour', 'dayofweek', 'month', 'is_weekend']].head())
+print("=== 数据填充前 ===")
+print(f"数据形状: {{OUTPUT_VAR}.shape}")
+print(f"缺失值总数: {{OUTPUT_VAR}.isnull().sum().sum()}")
+print("各列缺失值数量:")
+display({OUTPUT_VAR}.isnull().sum()[{OUTPUT_VAR}.isnull().sum() > 0])
+print()
+
+# Get fill parameters
+method = '{method}'
+value = {value}
+axis = {axis}
+limit = {limit} if {limit} > 0 else None
+
+# Perform filling
+print(f"使用方法 '{method}' 进行数据填充...")
+
+# Map Chinese method name to pandas method
+method_map = {
+    "均值": "mean",
+    "中位数": "median",
+    "众数": "mode",
+    "前向填充": "ffill",
+    "后向填充": "bfill",
+    "常数": "constant",
+    "线性插值": "linear",
+    "最近邻插值": "nearest"
+}
+
+pandas_method = method_map.get(method, "mean")
+
+# Apply filling based on method
+filled_cols = []
+for col in {OUTPUT_VAR}.columns:
+    if {OUTPUT_VAR}[col].isnull().sum() > 0:
+        # Skip non-numeric columns for mean/median/mode
+        if pandas_method in ["mean", "median"] and not pd.api.types.is_numeric_dtype({OUTPUT_VAR}[col]):
+            print(f"跳过非数值列 '{col}'，使用前向填充")
+            {OUTPUT_VAR}[col] = {OUTPUT_VAR}[col].fillna(method="ffill", limit=limit, axis=axis)
+        elif pandas_method == "mode" and not pd.api.types.is_numeric_dtype({OUTPUT_VAR}[col]):
+            print(f"跳过非数值列 '{col}'，使用前向填充")
+            {OUTPUT_VAR}[col] = {OUTPUT_VAR}[col].fillna(method="ffill", limit=limit, axis=axis)
+        elif pandas_method == "constant":
+            {OUTPUT_VAR}[col] = {OUTPUT_VAR}[col].fillna(value=value, limit=limit)
+        elif pandas_method in ["ffill", "bfill"]:
+            {OUTPUT_VAR}[col] = {OUTPUT_VAR}[col].fillna(method=pandas_method, limit=limit, axis=axis)
+        else:  # Interpolation methods
+            try:
+                {OUTPUT_VAR}[col] = {OUTPUT_VAR}[col].interpolate(method=pandas_method, limit=limit, axis=axis)
+            except Exception as e:
+                print(f"插值填充失败，使用前向填充: {e}")
+                {OUTPUT_VAR}[col] = {OUTPUT_VAR}[col].fillna(method="ffill", limit=limit, axis=axis)
+        filled_cols.append(col)
+
+print(f"填充了 {len(filled_cols)} 列")
+print()
+
+print("=== 数据填充后 ===")
+print(f"数据形状: {{OUTPUT_VAR}.shape}")
+print(f"缺失值总数: {{OUTPUT_VAR}.isnull().sum().sum()}")
+if {OUTPUT_VAR}.isnull().sum().sum() > 0:
+    print("剩余缺失值数量:")
+    display({OUTPUT_VAR}.isnull().sum()[{OUTPUT_VAR}.isnull().sum() > 0])
 else:
-    print("Error: Index is not DatetimeIndex.")
-"""
-)
+    print("所有缺失值已填充完成")
 
-feature_lag = Algorithm(
-    id="feature_lag",
-    name="滞后特征生成",
-    category="data_preprocessing",
-    prompt="请对 {VAR_NAME} 生成滞后特征。创建滞后 1 至 3 个时间步的列（lag_1, lag_2, lag_3），用于自回归分析。",
-    parameters=[
-        AlgorithmParameter(name="max_lag", type="int", default=3, label="最大滞后阶数", description="生成的最大滞后阶数", min=1, max=24)
-    ],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")],
-    imports=["import pandas as pd"],
-    template="""
-# Lag Feature Generation for {VAR_NAME}
-{OUTPUT_VAR} = {VAR_NAME}.select_dtypes(include=['number']).copy()
-target_cols = {OUTPUT_VAR}.columns
-lags = [1, 2, 3]
-
-for col in target_cols:
-    for lag in lags:
-        {OUTPUT_VAR}[f'{col}_lag_{lag}'] = {OUTPUT_VAR}[col].shift(lag)
-
-# Drop rows with NaNs created by shifting
-{OUTPUT_VAR}.dropna(inplace=True)
-
-print(f"Generated lag features for {lags}. New shape: {{OUTPUT_VAR}.shape}")
+print()
 display({OUTPUT_VAR}.head())
-"""
-)
-
-transform_log = Algorithm(
-    id="transform_log",
-    name="对数变换",
-    category="data_preprocessing",
-    prompt="请对 {VAR_NAME} 进行对数变换。使用 log1p 处理以稳定方差，并绘制变换前后的分布对比图。",
-    parameters=[],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")],
-    imports=["import pandas as pd", "import numpy as np", "import matplotlib.pyplot as plt"],
-    template="""
-# Log Transformation for {VAR_NAME}
-{OUTPUT_VAR} = {VAR_NAME}.select_dtypes(include=['number']).copy()
-cols = {OUTPUT_VAR}.columns
-
-fig, axes = plt.subplots(len(cols), 2, figsize=(12, 4*len(cols)))
-if len(cols) == 1: axes = np.array([axes])
-
-for i, col in enumerate(cols):
-    # Use log1p to handle zeros, ensure non-negative
-    if ({OUTPUT_VAR}[col] < 0).any():
-        print(f"Warning: Column {col} contains negative values. Adding offset before log.")
-        offset = abs({OUTPUT_VAR}[col].min()) + 1
-        data_to_log = {OUTPUT_VAR}[col] + offset
-    else:
-        data_to_log = {OUTPUT_VAR}[col]
-        
-    {OUTPUT_VAR}[f'{col}_log'] = np.log1p(data_to_log)
-    
-    # Plot Original vs Log
-    axes[i, 0].hist({OUTPUT_VAR}[col].dropna(), bins=30)
-    axes[i, 0].set_title(f'Original Distribution: {col}')
-    
-    axes[i, 1].hist({OUTPUT_VAR}[f'{col}_log'].dropna(), bins=30)
-    axes[i, 1].set_title(f'Log Distribution: {col}')
-
-plt.tight_layout()
-plt.show()
-display({OUTPUT_VAR}.head())
-"""
-)
-
-filter_butterworth = Algorithm(
-    id="filter_butterworth",
-    name="巴特沃斯低通滤波",
-    category="data_preprocessing",
-    prompt="请对 {VAR_NAME} 应用巴特沃斯低通滤波器。设置截止频率和阶数，去除高频噪声，保留主要趋势信号。",
-    parameters=[],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")],
-    imports=["import pandas as pd", "import numpy as np", "from scipy.signal import butter, filtfilt", "import matplotlib.pyplot as plt"],
-    template="""
-# Butterworth Lowpass Filter for {VAR_NAME}
-{OUTPUT_VAR} = {VAR_NAME}.select_dtypes(include=['number']).copy()
-
-# Filter parameters
-order = 4
-fs = 1.0       # Sampling frequency (assume 1 Hz if unknown)
-cutoff = 0.1   # Cutoff frequency (fraction of Nyquist)
-
-def butter_lowpass_filter(data, cutoff, fs, order=5):
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(order, normal_cutoff, btype='low', analog=False)
-    y = filtfilt(b, a, data)
-    return y
-
-for col in {OUTPUT_VAR}.columns:
-    # Handle NaNs before filtering
-    data = {OUTPUT_VAR}[col].interpolate().fillna(method='bfill').fillna(method='ffill')
-    {OUTPUT_VAR}[f'{col}_lowpass'] = butter_lowpass_filter(data.values, cutoff, fs, order)
-
-# Visualize
-plt.figure(figsize=(14, 6))
-for col in {OUTPUT_VAR}.columns:
-    if '_lowpass' not in col:
-        plt.plot({OUTPUT_VAR}.index, {OUTPUT_VAR}[col], alpha=0.5, label=f'{col} (Original)')
-        plt.plot({OUTPUT_VAR}.index, {OUTPUT_VAR}[f'{col}_lowpass'], linewidth=2, label=f'{col} (Filtered)')
-
-plt.title(f'Butterworth Lowpass Filter (cutoff={cutoff})')
-plt.legend()
-plt.show()
-"""
-)
-
-merge_dfs = Algorithm(
-    id="merge_dfs",
-    name="数据合并 (Merge)",
-    category="data_preprocessing",
-    prompt="请合并两个数据框 {left} 和 {right}。根据指定的合并方式（inner, outer, left, right）和连接键进行 pd.merge 操作。",
-    parameters=[
-        AlgorithmParameter(name="how", type="str", default="inner", label="合并方式", options=["inner", "outer", "left", "right"], description="执行合并的方式"),
-        AlgorithmParameter(name="on", type="str", default="", label="合并列", description="用于连接的列名或索引级别名。留空则使用索引。", widget="column-selector")
-    ],
-    inputs=[Port(name="left"), Port(name="right")],
-    outputs=[Port(name="merged")],
-    imports=["import pandas as pd"],
-    template="""
-# Merge DataFrames
-# Inputs: {left}, {right}
-# Output: {merged}
-
-try:
-    # Check if inputs are available
-    if '{left}' not in locals() or '{right}' not in locals():
-        print("Error: Input DataFrames not found.")
-    else:
-        on_col = '{on}'
-        if on_col == '':
-            # Merge on index if no column specified
-            {merged} = pd.merge({left}, {right}, how='{how}', left_index=True, right_index=True)
-        else:
-            {merged} = pd.merge({left}, {right}, how='{how}', on=on_col)
-            
-        print(f"Merged shape: {{merged}.shape}")
-        display({merged}.head())
-except Exception as e:
-    print(f"Merge failed: {e}")
-"""
-)
-
-train_test_split_algo = Algorithm(
-    id="train_test_split",
-    name="训练/测试集分割",
-    category="data_preprocessing",
-    prompt="请将 {data} 分割为训练集和测试集。使用 sklearn.model_selection.train_test_split，返回 X_train, X_test, y_train, y_test。",
-    parameters=[
-        AlgorithmParameter(name="test_size", type="float", default=0.2, label="测试集比例", description="包含在测试拆分中的数据集比例", min=0.01, max=0.99, step=0.05),
-        AlgorithmParameter(name="target_column", type="str", default="target", label="目标列", description="目标变量列名 (y)", widget="column-selector"),
-        AlgorithmParameter(name="random_state", type="int", default=42, label="随机种子", description="控制拆分前的数据打乱")
-    ],
-    inputs=[Port(name="data")],
-    outputs=[Port(name="X_train"), Port(name="X_test"), Port(name="y_train"), Port(name="y_test")],
-    imports=["from sklearn.model_selection import train_test_split", "import pandas as pd"],
-    template="""
-# Train/Test Split
-# Input: {data}
-# Outputs: {X_train}, {X_test}, {y_train}, {y_test}
-
-try:
-    target = '{target_column}'
-    if target not in {data}.columns:
-        print(f"Error: Target column '{target}' not found in DataFrame.")
-    else:
-        X = {data}.drop(columns=[target])
-        y = {data}[target]
-        
-        {X_train}, {X_test}, {y_train}, {y_test} = train_test_split(
-            X, y, test_size={test_size}, random_state={random_state}
-        )
-        
-        print(f"Train shape: X={{X_train}.shape}, y={{y_train}.shape}")
-        print(f"Test shape:  X={{X_test}.shape},  y={{y_test}.shape}")
-except Exception as e:
-    print(f"Split failed: {e}")
 """
 )
 
 algorithms = [
-    smoothing_sg, smoothing_ma, interpolation_time, interpolation_spline, resampling_down,
-    alignment, feature_scaling, diff_transform, outlier_clip, feature_extraction_time,
-    feature_lag, transform_log, filter_butterworth, merge_dfs, train_test_split_algo
+    interpolation_spline, resampling_down, alignment, feature_scaling, diff_transform, data_fill
 ]
-
-
-
-
