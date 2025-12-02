@@ -371,7 +371,153 @@ except Exception as e:
 """
 )
 
+# OHLC 重采样
+trend_ohlc = Algorithm(
+    id="trend_ohlc",
+    name="OHLC重采样",
+    category="trend_plot",
+    prompt="请对{VAR_NAME} 进行OHLC重采样。将时间序列数据重采样为指定频率的开盘价(Open)、最高价(High)、最低价(Low)和收盘价(Close)，并绘制蜡烛图。",
+    parameters=[
+        AlgorithmParameter(name="y_columns", type="list", default=[], label="Y轴列名", description="要进行OHLC重采样的列 (留空则使用所有数值列)", widget="column-selector", priority="critical"),
+        AlgorithmParameter(name="resample_freq", type="str", default="5T", label="重采样频率", description="重采样频率，如 1T=1分钟, 5T=5分钟, 1H=1小时, 1D=1天", priority="critical"),
+        AlgorithmParameter(name="title", type="str", default="OHLC蜡烛图", label="图表标题", description="图表的标题", priority="non-critical"),
+        AlgorithmParameter(name="figsize", type="str", default="(15, 8)", label="图像尺寸", description="图像大小元组，例如 (15, 8)", priority="non-critical")
+    ],
+    imports=["import pandas as pd", "import matplotlib.pyplot as plt", "import mplfinance.original_flavor as mpf"],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
+    template="""
+# OHLC Resampling for {VAR_NAME}
+{OUTPUT_VAR} = {VAR_NAME}.copy()
+
+# Get parameters
+y_columns = {y_columns}
+resample_freq = '{resample_freq}'
+title = '{title}'
+figsize_str = '{figsize}'
+
+# Parse figsize
+try:
+    figsize = eval(figsize_str)
+except:
+    figsize = (15, 8)
+
+# Determine Y columns
+if not y_columns:
+    # Use all numeric columns if none specified
+    y_columns = {OUTPUT_VAR}.select_dtypes(include=['number']).columns.tolist()
+
+# Check if the index is a DatetimeIndex
+if not isinstance({OUTPUT_VAR}.index, pd.DatetimeIndex):
+    print("错误: 数据索引不是时间索引，无法进行OHLC重采样。")
+else:
+    # Filter to selected columns
+    ohlc_data = {OUTPUT_VAR}[y_columns].copy()
+    
+    # Perform OHLC resampling for each column
+    for col in y_columns:
+        # Resample to OHLC
+        ohlc = ohlc_data[col].resample(resample_freq).ohlc()
+        
+        # Plot OHLC chart using mplfinance
+        plt.figure(figsize=figsize)
+        mpf.candlestick2_ochl(plt.gca(), ohlc['open'], ohlc['high'], ohlc['low'], ohlc['close'], width=0.6, colorup='green', colordown='red', alpha=0.8)
+        
+        plt.title(f"OHLC Chart for {col} (Resampled to {resample_freq})")
+        plt.xlabel('时间')
+        plt.ylabel(col)
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.show()
+"""
+)
+
+# 数据包络线绘制
+trend_envelope = Algorithm(
+    id="trend_envelope",
+    name="数据包络线绘制",
+    category="trend_plot",
+    prompt="请对{VAR_NAME} 绘制数据包络线。使用滚动窗口的最大值和最小值计算上、下包络线，并与原始曲线一起绘制。",
+    parameters=[
+        AlgorithmParameter(name="y_columns", type="list", default=[], label="Y轴列名", description="要绘制包络线的列 (留空则使用所有数值列)", widget="column-selector", priority="critical"),
+        AlgorithmParameter(name="window_duration", type="str", default="1min", label="窗口时长", description="时间窗口长度，如 1min=1分钟, 5min=5分钟, 1h=1小时", widget="select", options=["30s", "1min", "5min", "15min", "30min", "1h", "2h", "6h", "12h", "1D"], priority="critical"),
+        AlgorithmParameter(name="title", type="str", default="数据包络线图", label="图表标题", description="图表的标题", priority="non-critical"),
+        AlgorithmParameter(name="figsize", type="str", default="(15, 8)", label="图像尺寸", description="图像大小元组，例如 (15, 8)", priority="non-critical")
+    ],
+    imports=["import pandas as pd", "import matplotlib.pyplot as plt", "import numpy as np"],
+    inputs=[Port(name="df_in")],
+    outputs=[Port(name="df_out")],
+    template="""
+# Data Envelope Plot for {VAR_NAME}
+{OUTPUT_VAR} = {VAR_NAME}.copy()
+
+# Get parameters
+y_columns = {y_columns}
+window_duration = '{window_duration}'
+title = '{title}'
+figsize_str = '{figsize}'
+
+# Parse figsize
+try:
+    figsize = eval(figsize_str)
+except:
+    figsize = (15, 8)
+
+# Set Chinese font support
+plt.rcParams['font.sans-serif'] = ['SimHei']  # Use SimHei for Chinese
+plt.rcParams['axes.unicode_minus'] = False   # Fix minus sign display
+
+# Determine Y columns
+if not y_columns:
+    # Use all numeric columns if none specified
+    y_columns = {OUTPUT_VAR}.select_dtypes(include=['number']).columns.tolist()
+
+# Filter to selected columns
+envelope_data = {OUTPUT_VAR}[y_columns].copy()
+
+# Check if the index is a DatetimeIndex
+is_time_series = isinstance(envelope_data.index, pd.DatetimeIndex)
+
+# Calculate window size based on time duration
+window_size = 60  # Default window size if not time series
+if is_time_series:
+    # Calculate time difference between consecutive points
+    time_diff = envelope_data.index.to_series().diff().median()
+    if pd.isna(time_diff):
+        time_diff = pd.Timedelta(seconds=1)  # Default to 1 second if no valid difference
+    
+    # Convert window duration to Timedelta
+    window_timedelta = pd.Timedelta(window_duration)
+    
+    # Calculate window size in points
+    window_size = int(window_timedelta / time_diff)
+    
+    # Ensure minimum window size
+    window_size = max(5, window_size)
+
+# Plot envelope for each column
+for col in y_columns:
+    # Calculate upper and lower envelopes
+    upper_envelope = envelope_data[col].rolling(window=window_size, center=True).max()
+    lower_envelope = envelope_data[col].rolling(window=window_size, center=True).min()
+    
+    # Create plot
+    plt.figure(figsize=figsize)
+    plt.plot(envelope_data.index, envelope_data[col], label='原始数据', alpha=0.7)
+    plt.plot(envelope_data.index, upper_envelope, label=f'上包络线 (窗口={window_duration})', color='red', linestyle='--')
+    plt.plot(envelope_data.index, lower_envelope, label=f'下包络线 (窗口={window_duration})', color='green', linestyle='--')
+    
+    plt.title(f"数据包络线: {col}")
+    plt.xlabel('时间' if is_time_series else '索引')
+    plt.ylabel(col)
+    plt.grid(True, alpha=0.3)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+"""
+)
+
 algorithms = [
     trend_plot, trend_ma, trend_ewma, trend_loess, trend_polyfit,
-    trend_stl_trend
+    trend_stl_trend, trend_ohlc, trend_envelope
 ]

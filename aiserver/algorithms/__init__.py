@@ -4,6 +4,7 @@ from .data_preprocessing import algorithms as data_preprocessing_algos
 from .eda import algorithms as eda_algos
 from .anomaly_detection import algorithms as anomaly_detection_algos
 from .trend import algorithms as trend_algos
+from .plotting import algorithms as plotting_algos
 
 all_algorithms = (
     load_data_algos +
@@ -11,7 +12,8 @@ all_algorithms = (
     data_preprocessing_algos +
     eda_algos +
     anomaly_detection_algos +
-    trend_algos
+    trend_algos +
+    plotting_algos
 )
 
 ALGORITHM_PARAMETERS = {}
@@ -35,7 +37,8 @@ CATEGORY_LABELS = {
     "data_preprocessing": "数据预处理",
     "eda": "探索式分析",
     "anomaly_detection": "异常检测",
-    "trend_plot": "趋势绘制"
+    "trend_plot": "趋势绘制",
+    "数据绘图": "数据绘图"
 }
 
 ALGORITHM_PROMPTS = {
