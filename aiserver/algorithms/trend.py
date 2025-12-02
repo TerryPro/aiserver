@@ -223,26 +223,63 @@ trend_ma = Algorithm(
     id="trend_ma",
     name="移动平均趋势",
     category="trend_plot",
-    prompt="请对{VAR_NAME} 绘制移动平均趋势线。先推断采样频率并将数据重采样到统一时间轴（如 '1S'），选择合理的窗口长度（例如 60 或 300 秒），使用 pandas 的 rolling().mean() 计算趋势线，并用 matplotlib 绘制原始曲线与趋势线，添加网格、图例与中文标签。若 {VAR_NAME} 为 DataFrame，请对数值列分别绘制。",
-    parameters=[],
-    imports=["import matplotlib.pyplot as plt"],
+    prompt="请对{VAR_NAME} 绘制移动平均趋势线。使用 pandas 的 rolling().mean() 计算趋势线，并用 matplotlib 绘制原始曲线与趋势线，添加网格、图例与中文标签。",
+    parameters=[
+        AlgorithmParameter(name="y_columns", type="list", default=[], label="Y轴列名", description="要绘制移动平均线的列 (留空则使用所有数值列)", widget="column-selector", priority="critical"),
+        AlgorithmParameter(name="window_size", type="int", default=60, label="窗口大小", description="移动平均窗口大小", min=5, max=300, priority="critical"),
+        AlgorithmParameter(name="center", type="bool", default=True, label="居中对齐", description="是否居中对齐移动平均线", priority="non-critical"),
+        AlgorithmParameter(name="title", type="str", default="移动平均趋势图", label="图表标题", description="图表的标题", priority="non-critical"),
+        AlgorithmParameter(name="figsize", type="str", default="(15, 8)", label="图像尺寸", description="图像大小元组，例如 (15, 8)", priority="non-critical")
+    ],
+    imports=["import pandas as pd", "import matplotlib.pyplot as plt"],
     inputs=[Port(name="df_in")],
     outputs=[Port(name="df_out")],
     template="""
 # Moving Average Trend for {VAR_NAME}
-df_trend = {VAR_NAME}.select_dtypes(include=['number']).copy()
-target_col = df_trend.columns[0]
+{OUTPUT_VAR} = {VAR_NAME}.copy()
 
-window = 50
-df_trend['Trend'] = df_trend[target_col].rolling(window=window, center=True).mean()
+# Get parameters
+y_columns = {y_columns}
+window_size = {window_size}
+center = {center}
+title = '{title}'
+figsize_str = '{figsize}'
 
-plt.figure(figsize=(14, 6))
-plt.plot(df_trend.index, df_trend[target_col], label='Original', alpha=0.4)
-plt.plot(df_trend.index, df_trend['Trend'], label=f'MA (window={window})', linewidth=2, color='red')
-plt.title(f'Moving Average Trend: {target_col}')
-plt.legend()
-plt.grid(True, alpha=0.3)
-plt.show()
+# Parse figsize
+try:
+    figsize = eval(figsize_str)
+except:
+    figsize = (15, 8)
+
+# Set Chinese font support
+plt.rcParams['font.sans-serif'] = ['SimHei']  # Use SimHei for Chinese
+plt.rcParams['axes.unicode_minus'] = False   # Fix minus sign display
+
+# Determine Y columns
+if not y_columns:
+    # Use all numeric columns if none specified
+    y_columns = {OUTPUT_VAR}.select_dtypes(include=['number']).columns.tolist()
+
+# Filter to selected columns
+ma_data = {OUTPUT_VAR}[y_columns].copy()
+
+# Plot moving average for each column
+for col in y_columns:
+    # Calculate moving average
+    ma_data[f'{col}_MA'] = ma_data[col].rolling(window=window_size, center=center).mean()
+    
+    # Create plot
+    plt.figure(figsize=figsize)
+    plt.plot(ma_data.index, ma_data[col], label='原始数据', alpha=0.4)
+    plt.plot(ma_data.index, ma_data[f'{col}_MA'], label=f'移动平均线 (窗口={window_size})', linewidth=2, color='red')
+    
+    plt.title(f"移动平均趋势: {col}" if title == "移动平均趋势图" else title)
+    plt.xlabel('时间' if isinstance(ma_data.index, pd.DatetimeIndex) else '索引')
+    plt.ylabel(col)
+    plt.grid(True, alpha=0.3)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 """
 )
 
@@ -250,26 +287,61 @@ trend_ewma = Algorithm(
     id="trend_ewma",
     name="指数加权趋势",
     category="trend_plot",
-    prompt="请对{VAR_NAME} 绘制 EWMA（指数加权移动平均）趋势线。统一时间轴后，依据采样频率选择合适的 span（如 60 或 300），使用 pandas 的 ewm(span=...).mean() 计算趋势，并使用 matplotlib 将原始数据与 EWMA 趋势曲线叠加展示。",
-    parameters=[],
-    imports=["import matplotlib.pyplot as plt"],
+    prompt="请对{VAR_NAME} 绘制 EWMA（指数加权移动平均）趋势线。使用 pandas 的 ewm(span=...).mean() 计算趋势，并使用 matplotlib 将原始数据与 EWMA 趋势曲线叠加展示。",
+    parameters=[
+        AlgorithmParameter(name="y_columns", type="list", default=[], label="Y轴列名", description="要绘制指数加权平均线的列 (留空则使用所有数值列)", widget="column-selector", priority="critical"),
+        AlgorithmParameter(name="span", type="int", default=60, label="平滑跨度", description="指数加权平滑的跨度值", min=5, max=300, priority="critical"),
+        AlgorithmParameter(name="title", type="str", default="指数加权趋势图", label="图表标题", description="图表的标题", priority="non-critical"),
+        AlgorithmParameter(name="figsize", type="str", default="(15, 8)", label="图像尺寸", description="图像大小元组，例如 (15, 8)", priority="non-critical")
+    ],
+    imports=["import pandas as pd", "import matplotlib.pyplot as plt"],
     inputs=[Port(name="df_in")],
     outputs=[Port(name="df_out")],
     template="""
 # EWMA Trend for {VAR_NAME}
-df_trend = {VAR_NAME}.select_dtypes(include=['number']).copy()
-target_col = df_trend.columns[0]
+{OUTPUT_VAR} = {VAR_NAME}.copy()
 
-span = 50
-df_trend['EWMA'] = df_trend[target_col].ewm(span=span).mean()
+# Get parameters
+y_columns = {y_columns}
+span = {span}
+title = '{title}'
+figsize_str = '{figsize}'
 
-plt.figure(figsize=(14, 6))
-plt.plot(df_trend.index, df_trend[target_col], label='Original', alpha=0.4)
-plt.plot(df_trend.index, df_trend['EWMA'], label=f'EWMA (span={span})', linewidth=2, color='orange')
-plt.title(f'Exponential Weighted Moving Average: {target_col}')
-plt.legend()
-plt.grid(True, alpha=0.3)
-plt.show()
+# Parse figsize
+try:
+    figsize = eval(figsize_str)
+except:
+    figsize = (15, 8)
+
+# Set Chinese font support
+plt.rcParams['font.sans-serif'] = ['SimHei']  # Use SimHei for Chinese
+plt.rcParams['axes.unicode_minus'] = False   # Fix minus sign display
+
+# Determine Y columns
+if not y_columns:
+    # Use all numeric columns if none specified
+    y_columns = {OUTPUT_VAR}.select_dtypes(include=['number']).columns.tolist()
+
+# Filter to selected columns
+ewma_data = {OUTPUT_VAR}[y_columns].copy()
+
+# Plot EWMA for each column
+for col in y_columns:
+    # Calculate EWMA
+    ewma_data[f'{col}_EWMA'] = ewma_data[col].ewm(span=span).mean()
+    
+    # Create plot
+    plt.figure(figsize=figsize)
+    plt.plot(ewma_data.index, ewma_data[col], label='原始数据', alpha=0.4)
+    plt.plot(ewma_data.index, ewma_data[f'{col}_EWMA'], label=f'指数加权平均线 (span={span})', linewidth=2, color='orange')
+    
+    plt.title(f"指数加权趋势: {col}" if title == "指数加权趋势图" else title)
+    plt.xlabel('时间' if isinstance(ewma_data.index, pd.DatetimeIndex) else '索引')
+    plt.ylabel(col)
+    plt.grid(True, alpha=0.3)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 """
 )
 
@@ -277,30 +349,83 @@ trend_loess = Algorithm(
     id="trend_loess",
     name="LOESS 趋势",
     category="trend_plot",
-    prompt="请对{VAR_NAME} 绘制 LOESS 平滑趋势。将时间序列统一到同一采样频率后，使用 statsmodels.nonparametric.smoothers_lowess.lowess 进行平滑并绘制趋势曲线；若缺少该库，可退化为 rolling().mean()。图表需包含中文标题、轴标签与图例。",
-    parameters=[],
-    imports=["import statsmodels.api as sm", "import matplotlib.pyplot as plt", "import numpy as np"],
+    prompt="请对{VAR_NAME} 绘制 LOESS 平滑趋势。使用 statsmodels.nonparametric.smoothers_lowess.lowess 进行平滑并绘制趋势曲线；若缺少该库，可退化为 rolling().mean()。",
+    parameters=[
+        AlgorithmParameter(name="y_columns", type="list", default=[], label="Y轴列名", description="要绘制LOESS趋势线的列 (留空则使用所有数值列)", widget="column-selector", priority="critical"),
+        AlgorithmParameter(name="frac", type="float", default=0.1, label="平滑因子", description="LOESS平滑的平滑因子，范围0.05-0.5", min=0.05, max=0.5, step=0.05, priority="critical"),
+        AlgorithmParameter(name="title", type="str", default="LOESS趋势图", label="图表标题", description="图表的标题", priority="non-critical"),
+        AlgorithmParameter(name="figsize", type="str", default="(15, 8)", label="图像尺寸", description="图像大小元组，例如 (15, 8)", priority="non-critical")
+    ],
+    imports=["import statsmodels.api as sm", "import matplotlib.pyplot as plt", "import numpy as np", "import pandas as pd"],
     inputs=[Port(name="df_in")],
     outputs=[Port(name="df_out")],
     template="""
 # LOESS Trend for {VAR_NAME}
-df_trend = {VAR_NAME}.select_dtypes(include=['number']).dropna().copy()
-target_col = df_trend.columns[0]
+{OUTPUT_VAR} = {VAR_NAME}.copy()
 
-# Lowess requires numeric x-axis
-x = np.arange(len(df_trend))
-y = df_trend[target_col].values
+# Get parameters
+y_columns = {y_columns}
+frac = {frac}
+title = '{title}'
+figsize_str = '{figsize}'
 
-# frac controls smoothing amount (between 0 and 1)
-lowess = sm.nonparametric.lowess(y, x, frac=0.1)
+# Parse figsize
+try:
+    figsize = eval(figsize_str)
+except:
+    figsize = (15, 8)
 
-plt.figure(figsize=(14, 6))
-plt.plot(df_trend.index, y, label='Original', alpha=0.4)
-plt.plot(df_trend.index, lowess[:, 1], label='LOESS', linewidth=2, color='green')
-plt.title(f'LOESS Trend: {target_col}')
-plt.legend()
-plt.grid(True, alpha=0.3)
-plt.show()
+# Set Chinese font support
+plt.rcParams['font.sans-serif'] = ['SimHei']  # Use SimHei for Chinese
+plt.rcParams['axes.unicode_minus'] = False   # Fix minus sign display
+
+# Determine Y columns
+if not y_columns:
+    # Use all numeric columns if none specified
+    y_columns = {OUTPUT_VAR}.select_dtypes(include=['number']).columns.tolist()
+
+# Filter to selected columns
+loess_data = {OUTPUT_VAR}[y_columns].dropna().copy()
+
+# Plot LOESS for each column
+for col in y_columns:
+    try:
+        # Lowess requires numeric x-axis
+        x = np.arange(len(loess_data))
+        y = loess_data[col].values
+
+        # Calculate LOESS
+        lowess = sm.nonparametric.lowess(y, x, frac=frac)
+
+        # Create plot
+        plt.figure(figsize=figsize)
+        plt.plot(loess_data.index, y, label='原始数据', alpha=0.4)
+        plt.plot(loess_data.index, lowess[:, 1], label=f'LOESS 趋势 (平滑因子={frac})', linewidth=2, color='green')
+        
+        plt.title(f"LOESS 趋势: {col}" if title == "LOESS趋势图" else title)
+        plt.xlabel('时间' if isinstance(loess_data.index, pd.DatetimeIndex) else '索引')
+        plt.ylabel(col)
+        plt.grid(True, alpha=0.3)
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+    except Exception as e:
+        print(f"LOESS计算失败，尝试使用移动平均线替代: {e}")
+        # Fallback to moving average if LOESS fails
+        window_size = max(5, int(len(loess_data) * frac))
+        loess_data[f'{col}_MA'] = loess_data[col].rolling(window=window_size, center=True).mean()
+        
+        plt.figure(figsize=figsize)
+        plt.plot(loess_data.index, loess_data[col], label='原始数据', alpha=0.4)
+        plt.plot(loess_data.index, loess_data[f'{col}_MA'], label=f'移动平均线 (窗口={window_size})', linewidth=2, color='green')
+        
+        plt.title(f"LOESS 趋势: {col}" if title == "LOESS趋势图" else title)
+        plt.xlabel('时间' if isinstance(loess_data.index, pd.DatetimeIndex) else '索引')
+        plt.ylabel(col)
+        plt.grid(True, alpha=0.3)
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
 """
 )
 
@@ -308,30 +433,74 @@ trend_polyfit = Algorithm(
     id="trend_polyfit",
     name="多项式趋势拟合",
     category="trend_plot",
-    prompt="请对{VAR_NAME} 进行多项式趋势拟合并绘制趋势。将时间戳转换为连续时间序列（秒或索引），使用 numpy.polyfit 对 1~2 阶进行拟合，绘制拟合曲线与原始数据，并计算与输出拟合优度（R²）。",
-    parameters=[],
-    imports=["import numpy as np", "import matplotlib.pyplot as plt"],
+    prompt="请对{VAR_NAME} 进行多项式趋势拟合并绘制趋势。使用 numpy.polyfit 对指定阶数进行拟合，绘制拟合曲线与原始数据，并计算与输出拟合优度（R²）。",
+    parameters=[
+        AlgorithmParameter(name="y_columns", type="list", default=[], label="Y轴列名", description="要进行多项式拟合的列 (留空则使用所有数值列)", widget="column-selector", priority="critical"),
+        AlgorithmParameter(name="degree", type="int", default=2, label="多项式阶数", description="多项式拟合的阶数，范围1-5", min=1, max=5, priority="critical"),
+        AlgorithmParameter(name="title", type="str", default="多项式趋势拟合图", label="图表标题", description="图表的标题", priority="non-critical"),
+        AlgorithmParameter(name="figsize", type="str", default="(15, 8)", label="图像尺寸", description="图像大小元组，例如 (15, 8)", priority="non-critical")
+    ],
+    imports=["import numpy as np", "import matplotlib.pyplot as plt", "import pandas as pd"],
     inputs=[Port(name="df_in")],
     outputs=[Port(name="df_out")],
     template="""
 # Polynomial Trend Fit for {VAR_NAME}
-df_trend = {VAR_NAME}.select_dtypes(include=['number']).dropna().copy()
-target_col = df_trend.columns[0]
+{OUTPUT_VAR} = {VAR_NAME}.copy()
 
-y = df_trend[target_col].values
-x = np.arange(len(y))
+# Get parameters
+y_columns = {y_columns}
+degree = {degree}
+title = '{title}'
+figsize_str = '{figsize}'
 
-# Fit 2nd degree polynomial
-coefs = np.polyfit(x, y, deg=2)
-trend_poly = np.polyval(coefs, x)
+# Parse figsize
+try:
+    figsize = eval(figsize_str)
+except:
+    figsize = (15, 8)
 
-plt.figure(figsize=(14, 6))
-plt.plot(df_trend.index, y, label='Original', alpha=0.4)
-plt.plot(df_trend.index, trend_poly, label=f'Poly Fit (deg=2)', linewidth=2, color='purple')
-plt.title(f'Polynomial Trend Fit: {target_col}')
-plt.legend()
-plt.grid(True, alpha=0.3)
-plt.show()
+# Set Chinese font support
+plt.rcParams['font.sans-serif'] = ['SimHei']  # Use SimHei for Chinese
+plt.rcParams['axes.unicode_minus'] = False   # Fix minus sign display
+
+# Determine Y columns
+if not y_columns:
+    # Use all numeric columns if none specified
+    y_columns = {OUTPUT_VAR}.select_dtypes(include=['number']).columns.tolist()
+
+# Filter to selected columns
+poly_data = {OUTPUT_VAR}[y_columns].dropna().copy()
+
+# Plot polynomial fit for each column
+for col in y_columns:
+    # Prepare data
+    y = poly_data[col].values
+    x = np.arange(len(y))
+
+    # Fit polynomial
+    coefs = np.polyfit(x, y, deg=degree)
+    trend_poly = np.polyval(coefs, x)
+    
+    # Calculate R-squared
+    ss_res = np.sum((y - trend_poly) ** 2)
+    ss_tot = np.sum((y - np.mean(y)) ** 2)
+    r_squared = 1 - (ss_res / ss_tot) if ss_tot != 0 else 0
+
+    # Create plot
+    plt.figure(figsize=figsize)
+    plt.plot(poly_data.index, y, label='原始数据', alpha=0.4)
+    plt.plot(poly_data.index, trend_poly, label=f'{degree}阶多项式拟合 (R²={r_squared:.4f})', linewidth=2, color='purple')
+    
+    plt.title(f"多项式趋势拟合: {col}" if title == "多项式趋势拟合图" else title)
+    plt.xlabel('时间' if isinstance(poly_data.index, pd.DatetimeIndex) else '索引')
+    plt.ylabel(col)
+    plt.grid(True, alpha=0.3)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+    
+    # Print R-squared
+    print(f"{col} 的 {degree}阶多项式拟合优度 R² = {r_squared:.4f}")
 """
 )
 
@@ -339,35 +508,72 @@ trend_stl_trend = Algorithm(
     id="trend_stl_trend",
     name="STL 趋势分量",
     category="trend_plot",
-    prompt="请对{VAR_NAME} 执行 STL 分解并提取趋势分量。统一采样频率后，使用 statsmodels.tsa.seasonal.STL 提取趋势，绘制趋势曲线并与原始数据对比显示；根据卫星遥测的特性选择合适的季节周期（如日照周期）。",
-    parameters=[],
+    prompt="请对{VAR_NAME} 执行 STL 分解并提取趋势分量。使用 statsmodels.tsa.seasonal.STL 提取趋势，绘制趋势曲线并与原始数据对比显示。",
+    parameters=[
+        AlgorithmParameter(name="y_columns", type="list", default=[], label="Y轴列名", description="要进行STL分解的列 (留空则使用所有数值列)", widget="column-selector", priority="critical"),
+        AlgorithmParameter(name="seasonal", type="int", default=7, label="季节周期", description="季节周期长度，用于STL分解", min=3, max=100, priority="non-critical"),
+        AlgorithmParameter(name="robust", type="bool", default=True, label="稳健估计", description="是否使用稳健估计，对异常值更不敏感", priority="non-critical"),
+        AlgorithmParameter(name="title", type="str", default="STL 趋势分量图", label="图表标题", description="图表的标题", priority="non-critical"),
+        AlgorithmParameter(name="figsize", type="str", default="(15, 8)", label="图像尺寸", description="图像大小元组，例如 (15, 8)", priority="non-critical")
+    ],
     imports=["from statsmodels.tsa.seasonal import STL", "import matplotlib.pyplot as plt", "import pandas as pd"],
     inputs=[Port(name="df_in")],
     outputs=[Port(name="df_out")],
     template="""
 # STL Trend Extraction for {VAR_NAME}
-df_stl = {VAR_NAME}.select_dtypes(include=['number']).copy()
+{OUTPUT_VAR} = {VAR_NAME}.copy()
 
-# Handle frequency
-if isinstance(df_stl.index, pd.DatetimeIndex) and df_stl.index.freq is None:
-    inferred_freq = pd.infer_freq(df_stl.index)
-    if inferred_freq:
-        df_stl = df_stl.asfreq(inferred_freq).interpolate()
+# Get parameters
+y_columns = {y_columns}
+seasonal = {seasonal}
+robust = {robust}
+title = '{title}'
+figsize_str = '{figsize}'
 
-target_col = df_stl.columns[0]
-
+# Parse figsize
 try:
-    res = STL(df_stl[target_col], robust=True).fit()
-    
-    plt.figure(figsize=(14, 6))
-    plt.plot(df_stl.index, df_stl[target_col], label='Original', alpha=0.4)
-    plt.plot(df_stl.index, res.trend, label='STL Trend', linewidth=2, color='brown')
-    plt.title(f'STL Trend Extraction: {target_col}')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.show()
-except Exception as e:
-    print(f"STL failed: {e}")
+    figsize = eval(figsize_str)
+except:
+    figsize = (15, 8)
+
+# Set Chinese font support
+plt.rcParams['font.sans-serif'] = ['SimHei']  # Use SimHei for Chinese
+plt.rcParams['axes.unicode_minus'] = False   # Fix minus sign display
+
+# Determine Y columns
+if not y_columns:
+    # Use all numeric columns if none specified
+    y_columns = {OUTPUT_VAR}.select_dtypes(include=['number']).columns.tolist()
+
+# Filter to selected columns
+stl_data = {OUTPUT_VAR}[y_columns].copy()
+
+# Handle frequency for DatetimeIndex
+if isinstance(stl_data.index, pd.DatetimeIndex):
+    if stl_data.index.freq is None:
+        inferred_freq = pd.infer_freq(stl_data.index)
+        if inferred_freq:
+            stl_data = stl_data.asfreq(inferred_freq).interpolate()
+
+# Plot STL trend for each column
+for col in y_columns:
+    try:
+        res = STL(stl_data[col], seasonal=seasonal, robust=robust).fit()
+        
+        # Create plot
+        plt.figure(figsize=figsize)
+        plt.plot(stl_data.index, stl_data[col], label='原始数据', alpha=0.4)
+        plt.plot(stl_data.index, res.trend, label='STL 趋势分量', linewidth=2, color='brown')
+        
+        plt.title(f"STL 趋势分量: {col}" if title == "STL 趋势分量图" else title)
+        plt.xlabel('时间' if isinstance(stl_data.index, pd.DatetimeIndex) else '索引')
+        plt.ylabel(col)
+        plt.grid(True, alpha=0.3)
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+    except Exception as e:
+        print(f"{col} 的 STL 分解失败: {e}")
 """
 )
 
