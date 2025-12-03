@@ -95,7 +95,7 @@ def box_plot(df: pd.DataFrame, y_columns: List[str] = None, group_by: str = "", 
                     sns.boxplot(x=group_by, y=col, data=plot_data, ax=axes[i], showfliers=show_outliers)
                     axes[i].set_title(f"Box Plot of {col} by {group_by}")
                 else:
-                    plt.boxplot(plot_data[col].dropna(), showfliers=show_outliers, ax=axes[i])
+                    axes[i].boxplot(plot_data[col].dropna(), showfliers=show_outliers)
                     axes[i].set_title(f"Box Plot of {col}")
                     axes[i].set_xticklabels([col])
                 axes[i].tick_params(axis='x', rotation=45)

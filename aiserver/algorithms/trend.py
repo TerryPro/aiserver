@@ -8,9 +8,7 @@ trend_plot = Algorithm(
     category="trend_plot",
     prompt="请根据配置绘制 {VAR_NAME} 的趋势图。支持自定义 X 轴、Y 轴列、标题、网格等设置。",
     algo_module=trend,
-    imports=["import matplotlib.pyplot as plt", "import pandas as pd", "import math"],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")]
+    imports=["import matplotlib.pyplot as plt", "import pandas as pd", "import math"]
 )
 
 trend_ma = Algorithm(
@@ -19,9 +17,7 @@ trend_ma = Algorithm(
     category="trend_plot",
     prompt="请对{VAR_NAME} 绘制移动平均趋势线。使用 pandas 的 rolling().mean() 计算趋势线，并用 matplotlib 绘制原始曲线与趋势线，添加网格、图例与中文标签。",
     algo_module=trend,
-    imports=["import pandas as pd", "import matplotlib.pyplot as plt"],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")]
+    imports=["import pandas as pd", "import matplotlib.pyplot as plt"]
 )
 
 trend_ewma = Algorithm(
@@ -30,9 +26,7 @@ trend_ewma = Algorithm(
     category="trend_plot",
     prompt="请对{VAR_NAME} 绘制 EWMA（指数加权移动平均）趋势线。使用 pandas 的 ewm(span=...).mean() 计算趋势，并使用 matplotlib 将原始数据与 EWMA 趋势曲线叠加展示。",
     algo_module=trend,
-    imports=["import pandas as pd", "import matplotlib.pyplot as plt"],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")]
+    imports=["import pandas as pd", "import matplotlib.pyplot as plt"]
 )
 
 trend_loess = Algorithm(
@@ -41,9 +35,7 @@ trend_loess = Algorithm(
     category="trend_plot",
     prompt="请对{VAR_NAME} 绘制 LOESS 平滑趋势。使用 statsmodels.nonparametric.smoothers_lowess.lowess 进行平滑并绘制趋势曲线；若缺少该库，可退化为 rolling().mean()。",
     algo_module=trend,
-    imports=["import statsmodels.api as sm", "import matplotlib.pyplot as plt", "import numpy as np", "import pandas as pd"],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")]
+    imports=["import statsmodels.api as sm", "import matplotlib.pyplot as plt", "import numpy as np", "import pandas as pd"]
 )
 
 trend_polyfit = Algorithm(
@@ -52,9 +44,7 @@ trend_polyfit = Algorithm(
     category="trend_plot",
     prompt="请对{VAR_NAME} 进行多项式趋势拟合并绘制趋势。使用 numpy.polyfit 对指定阶数进行拟合，绘制拟合曲线与原始数据，并计算与输出拟合优度（R²）。",
     algo_module=trend,
-    imports=["import numpy as np", "import matplotlib.pyplot as plt", "import pandas as pd"],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")]
+    imports=["import numpy as np", "import matplotlib.pyplot as plt", "import pandas as pd"]
 )
 
 trend_stl_trend = Algorithm(
@@ -63,9 +53,7 @@ trend_stl_trend = Algorithm(
     category="trend_plot",
     prompt="请对{VAR_NAME} 执行 STL 分解并提取趋势分量。使用 statsmodels.tsa.seasonal.STL 提取趋势，绘制趋势曲线并与原始数据对比显示。",
     algo_module=trend,
-    imports=["from statsmodels.tsa.seasonal import STL", "import matplotlib.pyplot as plt", "import pandas as pd"],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")]
+    imports=["from statsmodels.tsa.seasonal import STL", "import matplotlib.pyplot as plt", "import pandas as pd"]
 )
 
 trend_ohlc = Algorithm(
@@ -74,9 +62,7 @@ trend_ohlc = Algorithm(
     category="trend_plot",
     prompt="请对{VAR_NAME} 进行OHLC重采样。将时间序列数据重采样为指定频率的开盘价(Open)、最高价(High)、最低价(Low)和收盘价(Close)，并绘制蜡烛图。",
     algo_module=trend,
-    imports=["import pandas as pd", "import matplotlib.pyplot as plt", "import mplfinance.original_flavor as mpf"],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")]
+    imports=["import pandas as pd", "import matplotlib.pyplot as plt", "import mplfinance.original_flavor as mpf"]
 )
 
 trend_envelope = Algorithm(
@@ -85,9 +71,7 @@ trend_envelope = Algorithm(
     category="trend_plot",
     prompt="请对{VAR_NAME} 绘制数据包络线。使用滚动窗口的最大值和最小值计算上、下包络线，并与原始曲线一起绘制。",
     algo_module=trend,
-    imports=["import pandas as pd", "import matplotlib.pyplot as plt", "import numpy as np"],
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")]
+    imports=["import pandas as pd", "import matplotlib.pyplot as plt", "import numpy as np"]
 )
 
 algorithms = [

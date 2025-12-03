@@ -7,8 +7,6 @@ select_columns = Algorithm(
     category="data_operation",
     prompt="请从 {VAR_NAME} 中选择指定的列 {columns}，生成新的 DataFrame。",
     algo_module=data_operation,
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")],
     imports=["import pandas as pd"]
 )
 
@@ -18,8 +16,6 @@ filter_rows = Algorithm(
     category="data_operation",
     prompt="请对 {VAR_NAME} 进行行筛选。根据条件 {condition} 筛选数据（例如 'age > 18'）。",
     algo_module=data_operation,
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")],
     imports=["import pandas as pd"]
 )
 
@@ -29,8 +25,6 @@ concat_dfs = Algorithm(
     category="data_operation",
     prompt="请连接两个 DataFrame {df1} 和 {df2}。沿轴 {axis} 进行连接。",
     algo_module=data_operation,
-    inputs=[Port(name="df1"), Port(name="df2")],
-    outputs=[Port(name="df_out")],
     imports=["import pandas as pd"]
 )
 
@@ -40,8 +34,6 @@ rename_columns = Algorithm(
     category="data_operation",
     prompt="请对 {VAR_NAME} 的列进行重命名。使用映射关系 {columns_map}。",
     algo_module=data_operation,
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")],
     imports=["import pandas as pd"]
 )
 
@@ -51,8 +43,6 @@ fill_na = Algorithm(
     category="data_operation",
     prompt="请对 {VAR_NAME} 填充缺失值。使用值 {value} 或方法 {method} 进行填充。",
     algo_module=data_operation,
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")],
     imports=["import pandas as pd", "import numpy as np"]
 )
 
@@ -62,8 +52,6 @@ window_calculation = Algorithm(
     category="data_operation",
     prompt="请对 {VAR_NAME} 进行窗口计算。使用窗口大小 {window} 对列 {columns} 应用 {func} 函数。",
     algo_module=data_operation,
-    inputs=[Port(name="df_in")],
-    outputs=[Port(name="df_out")],
     imports=["import pandas as pd"]
 )
 
@@ -73,8 +61,6 @@ merge_dfs = Algorithm(
     category="data_operation",
     prompt="请合并两个数据框 {left} 和 {right}。根据指定的合并方式（inner, outer, left, right）和连接键进行 pd.merge 操作。",
     algo_module=data_operation,
-    inputs=[Port(name="left"), Port(name="right")],
-    outputs=[Port(name="merged")],
     imports=["import pandas as pd"]
 )
 

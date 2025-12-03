@@ -69,14 +69,60 @@ class Algorithm:
             # 1. Extract parameters if not already provided
             if not self.parameters:
                 from .utils import extract_parameters_from_func
-                self.parameters = extract_parameters_from_func(self.func)
+                all_params = extract_parameters_from_func(self.func)
+                
+                # Separate parameters and inputs based on role
+                inferred_inputs = []
+                inferred_params = []
+                
+                for param in all_params:
+                    if param.role == 'input':
+                        inferred_inputs.append(Port(name=param.name, type=param.type))
+                    else:
+                        inferred_params.append(param)
+                
+                self.parameters = inferred_params
+                
+                # If inputs not provided manually, use inferred
+                if not self.inputs and inferred_inputs:
+                    self.inputs = inferred_inputs
             
             # 2. Extract imports if not provided
             if not self.imports:
                 from .utils import extract_imports_from_func
                 self.imports = extract_imports_from_func(self.func)
             
-            # 3. Generate templates
+            # 3. Infer outputs if not provided
+            if not self.outputs:
+                import inspect
+                import typing
+                sig = inspect.signature(self.func)
+                if sig.return_annotation is not inspect.Signature.empty:
+                    ret_type = sig.return_annotation
+                    
+                    # Helper function to check if a type is DataFrame-like
+                    def is_dataframe_type(t):
+                        if isinstance(t, str):
+                            return "DataFrame" in t
+                        elif hasattr(t, "__name__") and "DataFrame" in t.__name__:
+                            return True
+                        elif "DataFrame" in str(t):
+                            return True
+                        return False
+
+                    origin = typing.get_origin(ret_type)
+                    if origin is tuple or origin is typing.Tuple:
+                        args = typing.get_args(ret_type)
+                        for i, arg in enumerate(args):
+                            if is_dataframe_type(arg):
+                                port_name = f"df_out_{i+1}"
+                                self.outputs.append(Port(name=port_name, type="DataFrame"))
+                    else:
+                        # Single return value
+                        if is_dataframe_type(ret_type):
+                             self.outputs = [Port(name="df_out", type="DataFrame")]
+            
+            # 4. Generate templates
             from ..template_generator import generate_full_template
             import inspect
             

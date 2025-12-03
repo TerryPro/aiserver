@@ -226,3 +226,6 @@ def merge_dfs(left, right, how="inner", on=None) -> pd.DataFrame:
     except Exception as e:
         print(f"Merge failed: {e}")
         return left
+
+# Alias for backward compatibility or ID matching
+window_calculation = rolling_window

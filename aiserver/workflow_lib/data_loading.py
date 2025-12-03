@@ -37,7 +37,7 @@ def load_csv(filepath: str = "dataset/data.csv", timeIndex: str = "") -> Optiona
         print(f"Loaded data with shape: {result.shape}")
         return result
 
-def import_variable(variable_name: str = "") -> Any:
+def import_variable(variable_name: str = "") -> pd.DataFrame:
     """
     Import an existing variable from the global namespace.
     
@@ -48,7 +48,7 @@ def import_variable(variable_name: str = "") -> Any:
         priority: critical
     
     Returns:
-    Any: Imported variable.
+    pandas.DataFrame: Imported variable.
     """
     import globals
     
