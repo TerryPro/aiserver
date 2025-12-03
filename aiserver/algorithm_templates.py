@@ -5,7 +5,9 @@ These templates are designed to be inserted into Jupyter Notebook cells.
 Refactored to use aiserver.algorithms package
 """
 
-from .algorithms import ALGORITHM_TEMPLATES, ALGORITHM_IMPORTS, all_algorithms, CATEGORY_LABELS
+from .algorithms import ALGORITHM_TEMPLATES, ALGORITHM_PARAMETERS, ALGORITHM_IMPORTS, all_algorithms, CATEGORY_LABELS
+# 从workflow_lib导入所有算法函数
+from .workflow_lib import *
 import os
 
 def get_library_metadata():
@@ -32,12 +34,15 @@ def get_library_metadata():
             # Use algorithm-defined ports (all algorithms now have explicit ports)
             ports_info = algo.to_port_dict()
             
+            # Use pre-generated templates from Algorithm.initialize()
+            template = algo.template
+            
             algo_dict = {
                 "id": algo.id,
                 "name": algo.name,
                 "description": algo.prompt,
                 "category": label,
-                "template": algo.template,
+                "template": template,
                 "imports": algo.imports,
                 "args": args_list,
                 "inputs": ports_info["inputs"],

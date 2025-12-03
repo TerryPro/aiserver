@@ -16,6 +16,15 @@ all_algorithms = (
     plotting_algos
 )
 
+# Initialize all algorithms (extract parameters and generate templates)
+for algo in all_algorithms:
+    try:
+        algo.initialize()
+    except Exception as e:
+        print(f"Error initializing algorithm {algo.id}: {e}")
+        import traceback
+        traceback.print_exc()
+
 ALGORITHM_PARAMETERS = {}
 ALGORITHM_TEMPLATES = {}
 ALGORITHM_IMPORTS = {}
@@ -25,7 +34,7 @@ for algo in all_algorithms:
     if algo.parameters:
         ALGORITHM_PARAMETERS[algo.id] = [p.to_dict() for p in algo.parameters]
     
-    ALGORITHM_TEMPLATES[algo.id] = algo.template.strip() # Strip to be clean, though original might have newlines
+    ALGORITHM_TEMPLATES[algo.id] = algo.template.strip() if algo.template else ""
     
     if algo.imports:
         ALGORITHM_IMPORTS[algo.id] = algo.imports

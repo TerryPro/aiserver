@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Optional, Union, Callable
 from dataclasses import dataclass, field
 
 @dataclass
@@ -19,6 +19,7 @@ class AlgorithmParameter:
     options: Optional[List[str]] = None
     widget: Optional[str] = None
     priority: str = "non-critical"  # critical or non-critical
+    role: str = "parameter" # input, output, or parameter
 
     def to_dict(self):
         d = {
@@ -27,7 +28,8 @@ class AlgorithmParameter:
             "default": self.default,
             "label": self.label,
             "description": self.description,
-            "priority": self.priority
+            "priority": self.priority,
+            "role": self.role
         }
         if self.min is not None: d["min"] = self.min
         if self.max is not None: d["max"] = self.max
@@ -42,12 +44,52 @@ class Algorithm:
     name: str
     category: str # ID of the category, e.g. "load_data"
     prompt: str
-    template: str
+    algo_module: Any = None # The module containing the function
+    template: str = ""  # Code template for algorithm
     parameters: List[AlgorithmParameter] = field(default_factory=list)
     imports: List[str] = field(default_factory=list)
     inputs: List[Port] = field(default_factory=list)
     outputs: List[Port] = field(default_factory=list)
+    func: Optional[Callable] = field(init=False, default=None)  # The actual function implementing the algorithm
 
+    def initialize(self):
+        """
+        Initialize parameters and templates from the function.
+        This should be called at startup.
+        """
+        # 0. Resolve function from module if not present
+        if self.algo_module and not self.func:
+            try:
+                self.func = getattr(self.algo_module, self.id)
+            except AttributeError:
+                print(f"Error: Function '{self.id}' not found in module '{self.algo_module.__name__}'")
+                return
+
+        if self.func:
+            # 1. Extract parameters if not already provided
+            if not self.parameters:
+                from .utils import extract_parameters_from_func
+                self.parameters = extract_parameters_from_func(self.func)
+            
+            # 2. Extract imports if not provided
+            if not self.imports:
+                from .utils import extract_imports_from_func
+                self.imports = extract_imports_from_func(self.func)
+            
+            # 3. Generate templates
+            from ..template_generator import generate_full_template
+            import inspect
+            
+            try:
+                source = inspect.getsource(self.func)
+            except OSError:
+                source = "# Source not available"
+
+            self.template = generate_full_template(
+                self.name, 
+                source
+            )
+  
     def to_prompt_dict(self):
         return {
             "id": self.id,
