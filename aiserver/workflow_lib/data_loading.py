@@ -5,6 +5,12 @@ from typing import Any, Optional
 def load_csv(filepath: str = "dataset/data.csv", timeIndex: str = "") -> Optional[pd.DataFrame]:
     """
     Load CSV data from the specified filepath.
+
+    Algorithm:
+        name: 加载 CSV
+        category: load_data
+        prompt: 请加载 CSV 文件。使用 pandas.read_csv 读取指定路径的文件，并显示前几行数据。
+        imports: import pandas as pd, import os
     
     Parameters:
     filepath (str): CSV文件路径 (相对于项目根目录)
@@ -40,6 +46,12 @@ def load_csv(filepath: str = "dataset/data.csv", timeIndex: str = "") -> Optiona
 def import_variable(variable_name: str = "") -> pd.DataFrame:
     """
     Import an existing variable from the global namespace.
+
+    Algorithm:
+        name: 引入变量
+        category: load_data
+        prompt: 请引入已存在的 DataFrame 变量 {variable_name}。创建其副本或引用，以便后续分析使用。
+        imports: import pandas as pd
     
     Parameters:
     variable_name (str): 当前会话中的DataFrame变量名
@@ -77,6 +89,11 @@ def import_variable(variable_name: str = "") -> pd.DataFrame:
 def export_data(df: pd.DataFrame, global_name: str = "exported_data") -> None:
     """
     Export data to the global namespace.
+
+    Algorithm:
+        name: 引出变量
+        category: load_data
+        prompt: 请将 {VAR_NAME} 引出到全局环境。变量名为 {global_name}。
     
     Parameters:
     df (pandas.DataFrame): DataFrame to export.

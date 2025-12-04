@@ -7,6 +7,12 @@ from statsmodels.tsa.seasonal import STL
 def autocorrelation(df: pd.DataFrame, lags: int = 50, figsize: tuple = None) -> pd.DataFrame:
     """
     Perform autocorrelation analysis on a DataFrame.
+
+    Algorithm:
+        name: 自相关分析 (ACF)
+        category: eda
+        prompt: 请对{VAR_NAME} 进行自相关分析。计算并绘制 ACF 图，使用 statsmodels.graphics.tsaplots.plot_acf，以发现周期性模式。
+        imports: import matplotlib.pyplot as plt, from statsmodels.graphics.tsaplots import plot_acf
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -50,6 +56,12 @@ def autocorrelation(df: pd.DataFrame, lags: int = 50, figsize: tuple = None) -> 
 def decomposition(df: pd.DataFrame, figsize: tuple = None) -> pd.DataFrame:
     """
     Perform STL decomposition on a DataFrame.
+
+    Algorithm:
+        name: STL 分解
+        category: eda
+        prompt: 请对{VAR_NAME} 执行 STL 分解 (Seasonal-Trend decomposition using LOESS)。将数据分解为趋势、季节与残差，并绘制分解结果图。
+        imports: import matplotlib.pyplot as plt, from statsmodels.tsa.seasonal import STL, import pandas as pd
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame with DatetimeIndex.
@@ -95,6 +107,12 @@ def decomposition(df: pd.DataFrame, figsize: tuple = None) -> pd.DataFrame:
 def sampling_period(df: pd.DataFrame) -> pd.DataFrame:
     """
     Analyze sampling periods in a DataFrame.
+
+    Algorithm:
+        name: 采样周期统计
+        category: eda
+        prompt: 请对{VAR_NAME} 进行采样周期统计。计算每一列数据的实际采样周次。
+        imports: import pandas as pd
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame with DatetimeIndex.
@@ -149,6 +167,12 @@ def sampling_period(df: pd.DataFrame) -> pd.DataFrame:
 def data_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Calculate data features for a DataFrame.
+
+    Algorithm:
+        name: 数据特征
+        category: eda
+        prompt: 请对{VAR_NAME} 进行数据特征计算。使用pandas的describe()函数，计算各列的基本统计特征。
+        imports: import pandas as pd
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.

@@ -7,6 +7,12 @@ from sklearn.ensemble import IsolationForest
 def threshold_sigma(df, columns, window=20, sigma=3.0) -> pd.DataFrame:
     """
     Detect anomalies using 3-sigma threshold method.
+
+    Algorithm:
+        name: 3-Sigma 异常检测
+        category: anomaly_detection
+        prompt: 请对 {VAR_NAME} 执行 3-Sigma 异常检测。使用窗口大小 {window} 和阈值 {sigma}。
+        imports: import pandas as pd, import numpy as np
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -70,6 +76,12 @@ def threshold_sigma(df, columns, window=20, sigma=3.0) -> pd.DataFrame:
 def isolation_forest(df, contamination=0.05) -> pd.DataFrame:
     """
     Detect anomalies using Isolation Forest algorithm.
+
+    Algorithm:
+        name: 孤立森林异常检测
+        category: anomaly_detection
+        prompt: 请对 {VAR_NAME} 执行孤立森林异常检测。设置异常比例为 {contamination}。
+        imports: import pandas as pd, from sklearn.ensemble import IsolationForest
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -107,6 +119,12 @@ def isolation_forest(df, contamination=0.05) -> pd.DataFrame:
 def change_point(df, n_bkps=5, figsize=None) -> pd.DataFrame:
     """
     Detect change points in a time series using binary segmentation.
+
+    Algorithm:
+        name: 变点检测
+        category: anomaly_detection
+        prompt: 请对 {VAR_NAME} 执行变点检测。检测 {n_bkps} 个变点。
+        imports: import pandas as pd, import ruptures as rpt, import matplotlib.pyplot as plt
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame with time series data.
@@ -160,6 +178,12 @@ def change_point(df, n_bkps=5, figsize=None) -> pd.DataFrame:
 def zscore_anomaly(df, columns, threshold=3.0) -> pd.DataFrame:
     """
     Detect anomalies using Z-score method.
+
+    Algorithm:
+        name: Z-Score 异常检测
+        category: anomaly_detection
+        prompt: 请对 {VAR_NAME} 执行 Z-Score 异常检测。使用阈值 {threshold}。
+        imports: import pandas as pd, import numpy as np
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -202,6 +226,12 @@ def zscore_anomaly(df, columns, threshold=3.0) -> pd.DataFrame:
 def iqr_anomaly(df, columns, multiplier=1.5) -> pd.DataFrame:
     """
     Detect anomalies using IQR (Interquartile Range) method.
+
+    Algorithm:
+        name: IQR 异常检测
+        category: anomaly_detection
+        prompt: 请对 {VAR_NAME} 执行 IQR 异常检测。使用 IQR 倍数 {multiplier}。
+        imports: import pandas as pd
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -250,6 +280,12 @@ def iqr_anomaly(df, columns, multiplier=1.5) -> pd.DataFrame:
 def moving_window_zscore_anomaly(df, columns, window=60, threshold=3.0, center=True) -> pd.DataFrame:
     """
     Detect anomalies using moving window Z-score method.
+
+    Algorithm:
+        name: 移动窗口 Z-Score 检测
+        category: anomaly_detection
+        prompt: 请对 {VAR_NAME} 执行移动窗口 Z-Score 异常检测。窗口大小 {window}，阈值 {threshold}。
+        imports: import pandas as pd, import numpy as np
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -303,6 +339,12 @@ def moving_window_zscore_anomaly(df, columns, window=60, threshold=3.0, center=T
 def moving_window_iqr_anomaly(df, columns, window=60, multiplier=1.5, center=True) -> pd.DataFrame:
     """
     Detect anomalies using moving window IQR method.
+
+    Algorithm:
+        name: 移动窗口 IQR 检测
+        category: anomaly_detection
+        prompt: 请对 {VAR_NAME} 执行移动窗口 IQR 异常检测。窗口大小 {window}，倍数 {multiplier}。
+        imports: import pandas as pd
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.

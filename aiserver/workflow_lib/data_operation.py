@@ -3,6 +3,12 @@ import pandas as pd
 def select_columns(df, columns) -> pd.DataFrame:
     """
     Select specified columns from a DataFrame.
+
+    Algorithm:
+        name: 选择列
+        category: data_operation
+        prompt: 请从 {VAR_NAME} 中选择指定的列 {columns}，生成新的 DataFrame。
+        imports: import pandas as pd
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -31,6 +37,12 @@ def select_columns(df, columns) -> pd.DataFrame:
 def filter_rows(df, condition) -> pd.DataFrame:
     """
     Filter rows based on a condition string.
+
+    Algorithm:
+        name: 筛选行
+        category: data_operation
+        prompt: 请对 {VAR_NAME} 进行行筛选。根据条件 {condition} 筛选数据（例如 'age > 18'）。
+        imports: import pandas as pd
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -57,6 +69,12 @@ def filter_rows(df, condition) -> pd.DataFrame:
 def concat_dfs(df1, df2, axis=0) -> pd.DataFrame:
     """
     Concatenate two DataFrames.
+
+    Algorithm:
+        name: 数据连接 (Concat)
+        category: data_operation
+        prompt: 请连接两个 DataFrame {df1} 和 {df2}。沿轴 {axis} 进行连接。
+        imports: import pandas as pd
     
     Parameters:
     df1 (pandas.DataFrame): First DataFrame.
@@ -83,6 +101,12 @@ def concat_dfs(df1, df2, axis=0) -> pd.DataFrame:
 def rename_columns(df, columns_map) -> pd.DataFrame:
     """
     Rename columns in a DataFrame.
+
+    Algorithm:
+        name: 重命名列
+        category: data_operation
+        prompt: 请对 {VAR_NAME} 的列进行重命名。使用映射关系 {columns_map}。
+        imports: import pandas as pd
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -109,6 +133,12 @@ def rename_columns(df, columns_map) -> pd.DataFrame:
 def fill_na(df, value=None, method=None) -> pd.DataFrame:
     """
     Fill missing values in a DataFrame.
+
+    Algorithm:
+        name: 填充缺失值
+        category: data_operation
+        prompt: 请对 {VAR_NAME} 填充缺失值。使用值 {value} 或方法 {method} 进行填充。
+        imports: import pandas as pd, import numpy as np
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -145,6 +175,12 @@ def fill_na(df, value=None, method=None) -> pd.DataFrame:
 def rolling_window(df, columns, window=5, func="mean", min_periods=1, center=False) -> pd.DataFrame:
     """
     Apply rolling window calculation to a DataFrame.
+
+    Algorithm:
+        name: 窗口计算
+        category: data_operation
+        prompt: 请对 {VAR_NAME} 进行窗口计算。使用窗口大小 {window} 对列 {columns} 应用 {func} 函数。
+        imports: import pandas as pd
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -195,6 +231,12 @@ def rolling_window(df, columns, window=5, func="mean", min_periods=1, center=Fal
 def merge_dfs(left, right, how="inner", on=None) -> pd.DataFrame:
     """
     Merge two DataFrames.
+
+    Algorithm:
+        name: 数据合并 (Merge)
+        category: data_operation
+        prompt: 请合并两个数据框 {left} 和 {right}。根据指定的合并方式（inner, outer, left, right）和连接键进行 pd.merge 操作。
+        imports: import pandas as pd
     
     Parameters:
     left (pandas.DataFrame): Left DataFrame.

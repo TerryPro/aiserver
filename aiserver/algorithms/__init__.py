@@ -1,20 +1,46 @@
-from .data_loading import algorithms as load_data_algos
-from .data_operation import algorithms as data_operation_algos
-from .data_preprocessing import algorithms as data_preprocessing_algos
-from .eda import algorithms as eda_algos
-from .anomaly_detection import algorithms as anomaly_detection_algos
-from .trend import algorithms as trend_algos
-from .plotting import algorithms as plotting_algos
-
-all_algorithms = (
-    load_data_algos +
-    data_operation_algos +
-    data_preprocessing_algos +
-    eda_algos +
-    anomaly_detection_algos +
-    trend_algos +
-    plotting_algos
+import inspect
+from typing import List, Dict, Any
+from .base import Algorithm
+from ..workflow_lib import (
+    data_loading,
+    data_operation,
+    data_preprocessing,
+    eda,
+    anomaly_detection,
+    trend,
+    plotting
 )
+
+# Modules to scan for algorithms
+MODULES = [
+    data_loading,
+    data_operation,
+    data_preprocessing,
+    eda,
+    anomaly_detection,
+    trend,
+    plotting
+]
+
+all_algorithms: List[Algorithm] = []
+
+# Scan modules and register algorithms
+algorithms_dict = {}
+
+for module in MODULES:
+    for name, func in inspect.getmembers(module, inspect.isfunction):
+        # Skip private functions
+        if name.startswith('_'):
+            continue
+        
+        # Try to create algorithm from function
+        algo = Algorithm.from_func(func, module)
+        if algo:
+            # Avoid duplicates (e.g. aliases)
+            if algo.id not in algorithms_dict:
+                algorithms_dict[algo.id] = algo
+
+all_algorithms = list(algorithms_dict.values())
 
 # Initialize all algorithms (extract parameters and generate templates)
 for algo in all_algorithms:

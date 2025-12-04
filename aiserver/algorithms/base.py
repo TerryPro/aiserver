@@ -149,6 +149,39 @@ class Algorithm:
             "inputs": [{"name": port.name, "type": port.type} for port in self.inputs],
             "outputs": [{"name": port.name, "type": port.type} for port in self.outputs]
         }
+    
+    @classmethod
+    def from_func(cls, func: Callable, module: Any) -> Optional['Algorithm']:
+        """
+        从函数对象创建 Algorithm 实例。
+        如果函数 Docstring 中没有 Algorithm: 块，则返回 None。
+        """
+        import inspect
+        from .utils import parse_algorithm_metadata
+        
+        docstring = inspect.getdoc(func)
+        metadata = parse_algorithm_metadata(docstring)
+        
+        if not metadata:
+            return None
+            
+        # 自动推断 ID 为函数名
+        algo_id = func.__name__
+        
+        # 构建实例
+        algo = cls(
+            id=algo_id,
+            name=metadata.get('name', algo_id),
+            category=metadata.get('category', 'uncategorized'),
+            prompt=metadata.get('prompt', ''),
+            imports=metadata.get('imports', []),
+            algo_module=module,
+            # inputs/outputs 将在 initialize() 中自动推断
+        )
+        
+        # 立即初始化以提取参数和端口
+        algo.initialize() 
+        return algo
 
 @dataclass
 class AlgorithmCategory:

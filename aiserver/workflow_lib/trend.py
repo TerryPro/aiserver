@@ -6,9 +6,15 @@ from statsmodels.tsa.seasonal import STL
 import mplfinance.original_flavor as mpf
 
 
-def trend_plot(df, x_column="", y_columns=None, plot_type="叠加显示", title="趋势图", xlabel="", ylabel="", grid=True, figsize=None) -> pd.DataFrame:
+def trend_plot(df, x_column="", y_columns=None, plot_type="叠加显示", title="趋势图", xlabel="", ylabel="", grid=True, figsize=None) -> None:
     """
     Plot trend chart for a DataFrame.
+
+    Algorithm:
+        name: 通用趋势图 (Trend)
+        category: trend_plot
+        prompt: 请根据配置绘制 {VAR_NAME} 的趋势图。支持自定义 X 轴、Y 轴列、标题、网格等设置。
+        imports: import matplotlib.pyplot as plt, import pandas as pd, import math
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -42,7 +48,7 @@ def trend_plot(df, x_column="", y_columns=None, plot_type="叠加显示", title=
         priority: non-critical
     
     Returns:
-    pandas.DataFrame: Original DataFrame (unchanged).
+    None
     """
     result = df.copy()
     
@@ -201,13 +207,18 @@ def trend_plot(df, x_column="", y_columns=None, plot_type="叠加显示", title=
             plt.tight_layout()
     
     plt.show()
-    
-    return result
 
 
-def trend_ma(df, y_columns=None, window_size=60, center=True, title="移动平均趋势图", figsize=None) -> pd.DataFrame:
+
+def trend_ma(df, y_columns=None, window_size=60, center=True, title="移动平均趋势图", figsize=None) -> None:
     """
     Plot moving average trend chart for a DataFrame.
+
+    Algorithm:
+        name: 移动平均趋势
+        category: trend_plot
+        prompt: 请对{VAR_NAME} 绘制移动平均趋势线。使用 pandas 的 rolling().mean() 计算趋势线，并用 matplotlib 绘制原始曲线与趋势线，添加网格、图例与中文标签。
+        imports: import pandas as pd, import matplotlib.pyplot as plt
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -231,7 +242,7 @@ def trend_ma(df, y_columns=None, window_size=60, center=True, title="移动平�
         priority: non-critical
     
     Returns:
-    pandas.DataFrame: Original DataFrame (unchanged).
+    None
     """
     result = df.copy()
     
@@ -276,13 +287,18 @@ def trend_ma(df, y_columns=None, window_size=60, center=True, title="移动平�
         plt.legend()
         plt.tight_layout()
         plt.show()
-    
-    return result
 
 
-def trend_ewma(df, y_columns=None, span=60, title="指数加权趋势图", figsize=None) -> pd.DataFrame:
+
+def trend_ewma(df, y_columns=None, span=60, title="指数加权趋势图", figsize=None) -> None:
     """
     Plot EWMA (Exponentially Weighted Moving Average) trend chart for a DataFrame.
+
+    Algorithm:
+        name: 指数加权趋势
+        category: trend_plot
+        prompt: 请对{VAR_NAME} 绘制 EWMA（指数加权移动平均）趋势线。使用 pandas 的 ewm(span=...).mean() 计算趋势，并使用 matplotlib 将原始数据与 EWMA 趋势曲线叠加展示。
+        imports: import pandas as pd, import matplotlib.pyplot as plt
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -303,7 +319,7 @@ def trend_ewma(df, y_columns=None, span=60, title="指数加权趋势图", figsi
         priority: non-critical
     
     Returns:
-    pandas.DataFrame: Original DataFrame (unchanged).
+    None
     """
     result = df.copy()
     
@@ -348,13 +364,18 @@ def trend_ewma(df, y_columns=None, span=60, title="指数加权趋势图", figsi
         plt.legend()
         plt.tight_layout()
         plt.show()
-    
-    return result
 
 
-def trend_loess(df, y_columns=None, frac=0.1, title="LOESS趋势图", figsize=None) -> pd.DataFrame:
+
+def trend_loess(df, y_columns=None, frac=0.1, title="LOESS趋势图", figsize=None) -> None:
     """
     Plot LOESS (Locally Weighted Scatterplot Smoothing) trend chart for a DataFrame.
+
+    Algorithm:
+        name: LOESS 趋势
+        category: trend_plot
+        prompt: 请对{VAR_NAME} 绘制 LOESS 平滑趋势。使用 statsmodels.nonparametric.smoothers_lowess.lowess 进行平滑并绘制趋势曲线；若缺少该库，可退化为 rolling().mean()。
+        imports: import statsmodels.api as sm, import matplotlib.pyplot as plt, import numpy as np, import pandas as pd
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -376,7 +397,7 @@ def trend_loess(df, y_columns=None, frac=0.1, title="LOESS趋势图", figsize=No
         priority: non-critical
     
     Returns:
-    pandas.DataFrame: Original DataFrame (unchanged).
+    None
     """
     result = df.copy()
     
@@ -443,13 +464,18 @@ def trend_loess(df, y_columns=None, frac=0.1, title="LOESS趋势图", figsize=No
             plt.legend()
             plt.tight_layout()
             plt.show()
-    
-    return result
 
 
-def trend_polyfit(df, y_columns=None, degree=2, title="多项式趋势拟合图", figsize=None) -> pd.DataFrame:
+
+def trend_polyfit(df, y_columns=None, degree=2, title="多项式趋势拟合图", figsize=None) -> None:
     """
     Plot polynomial trend fit for a DataFrame.
+
+    Algorithm:
+        name: 多项式趋势拟合
+        category: trend_plot
+        prompt: 请对{VAR_NAME} 进行多项式趋势拟合并绘制趋势。使用 numpy.polyfit 对指定阶数进行拟合，绘制拟合曲线与原始数据，并计算与输出拟合优度（R²）。
+        imports: import numpy as np, import matplotlib.pyplot as plt, import pandas as pd
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -470,7 +496,7 @@ def trend_polyfit(df, y_columns=None, degree=2, title="多项式趋势拟合图"
         priority: non-critical
     
     Returns:
-    pandas.DataFrame: Original DataFrame (unchanged).
+    None
     """
     result = df.copy()
     
@@ -528,13 +554,18 @@ def trend_polyfit(df, y_columns=None, degree=2, title="多项式趋势拟合图"
         
         # Print R-squared
         print(f"{col} 的 {degree}阶多项式拟合优度 R² = {r_squared:.4f}")
-    
-    return result
 
 
-def trend_stl_trend(df, y_columns=None, seasonal=7, robust=True, title="STL 趋势分量图", figsize=None) -> pd.DataFrame:
+
+def trend_stl_trend(df, y_columns=None, seasonal=7, robust=True, title="STL 趋势分量图", figsize=None) -> None:
     """
     Plot STL (Seasonal-Trend decomposition using LOESS) trend component for a DataFrame.
+
+    Algorithm:
+        name: STL 趋势分量
+        category: trend_plot
+        prompt: 请对{VAR_NAME} 执行 STL 分解并提取趋势分量。使用 statsmodels.tsa.seasonal.STL 提取趋势，绘制趋势曲线并与原始数据对比显示。
+        imports: from statsmodels.tsa.seasonal import STL, import matplotlib.pyplot as plt, import pandas as pd
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -558,7 +589,7 @@ def trend_stl_trend(df, y_columns=None, seasonal=7, robust=True, title="STL 趋�
         priority: non-critical
     
     Returns:
-    pandas.DataFrame: Original DataFrame (unchanged).
+    None
     """
     result = df.copy()
     
@@ -612,13 +643,18 @@ def trend_stl_trend(df, y_columns=None, seasonal=7, robust=True, title="STL 趋�
             plt.show()
         except Exception as e:
             print(f"{col} 的 STL 分解失败: {e}")
-    
-    return result
 
 
-def trend_ohlc(df, y_columns=None, resample_freq="5T", title="OHLC蜡烛图", figsize=None) -> pd.DataFrame:
+
+def trend_ohlc(df, y_columns=None, resample_freq="5T", title="OHLC蜡烛图", figsize=None) -> None:
     """
     Plot OHLC (Open-High-Low-Close) candlestick chart for a DataFrame.
+
+    Algorithm:
+        name: OHLC重采样
+        category: trend_plot
+        prompt: 请对{VAR_NAME} 进行OHLC重采样。将时间序列数据重采样为指定频率的开盘价(Open)、最高价(High)、最低价(Low)和收盘价(Close)，并绘制蜡烛图。
+        imports: import pandas as pd, import matplotlib.pyplot as plt, import mplfinance.original_flavor as mpf
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -637,7 +673,7 @@ def trend_ohlc(df, y_columns=None, resample_freq="5T", title="OHLC蜡烛图", fi
         priority: non-critical
     
     Returns:
-    pandas.DataFrame: Original DataFrame (unchanged).
+    None
     """
     result = df.copy()
     
@@ -661,7 +697,7 @@ def trend_ohlc(df, y_columns=None, resample_freq="5T", title="OHLC蜡烛图", fi
     # Check if the index is a DatetimeIndex
     if not isinstance(result.index, pd.DatetimeIndex):
         print("错误: 数据索引不是时间索引，无法进行OHLC重采样。")
-        return result
+        return
     else:
         # Filter to selected columns
         ohlc_data = result[y_columns].copy()
@@ -681,13 +717,18 @@ def trend_ohlc(df, y_columns=None, resample_freq="5T", title="OHLC蜡烛图", fi
             plt.grid(True, alpha=0.3)
             plt.tight_layout()
             plt.show()
-    
-    return result
 
 
-def trend_envelope(df, y_columns=None, window_duration="1min", title="数据包络线图", figsize=None) -> pd.DataFrame:
+
+def trend_envelope(df, y_columns=None, window_duration="1min", title="数据包络线图", figsize=None) -> None:
     """
     Plot data envelope for a DataFrame.
+
+    Algorithm:
+        name: 数据包络线绘制
+        category: trend_plot
+        prompt: 请对{VAR_NAME} 绘制数据包络线。使用滚动窗口的最大值和最小值计算上、下包络线，并与原始曲线一起绘制。
+        imports: import pandas as pd, import matplotlib.pyplot as plt, import numpy as np
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -707,7 +748,7 @@ def trend_envelope(df, y_columns=None, window_duration="1min", title="数据包�
         priority: non-critical
     
     Returns:
-    pandas.DataFrame: Original DataFrame (unchanged).
+    None
     """
     result = df.copy()
     
@@ -774,5 +815,4 @@ def trend_envelope(df, y_columns=None, window_duration="1min", title="数据包�
         plt.legend()
         plt.tight_layout()
         plt.show()
-    
-    return result
+

@@ -281,3 +281,48 @@ def extract_parameters_from_func(func: Callable, overrides: Dict[str, Dict[str, 
         parameters.append(algo_param)
         
     return parameters
+
+def parse_algorithm_metadata(docstring: str) -> Dict[str, Any]:
+    """
+    从 Docstring 解析算法元数据。
+    支持格式:
+    Algorithm:
+        name: 算法名称
+        category: 分类ID
+        prompt: 提示词模板
+        imports: import pandas as pd, import numpy as np
+    """
+    if not docstring:
+        return {}
+    
+    metadata = {}
+    lines = docstring.split('\n')
+    in_algo_section = False
+    
+    for line in lines:
+        stripped_line = line.strip()
+        if not stripped_line:
+            continue
+            
+        if stripped_line.startswith('Algorithm:'):
+            in_algo_section = True
+            continue
+        
+        if in_algo_section:
+            # Stop if we hit another section
+            if stripped_line.startswith('Parameters:') or stripped_line.startswith('Returns:') or stripped_line.startswith('Example:'):
+                break
+                
+            # Parse key-value pairs
+            match = re.match(r'^(\w+)\s*:\s*(.+)$', stripped_line)
+            if match:
+                key = match.group(1)
+                value = match.group(2)
+                
+                if key == 'imports':
+                    # Split imports by comma and strip
+                    metadata[key] = [imp.strip() for imp in value.split(',') if imp.strip()]
+                else:
+                    metadata[key] = value
+                    
+    return metadata

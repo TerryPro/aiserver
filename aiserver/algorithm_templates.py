@@ -37,6 +37,11 @@ def get_library_metadata():
             # Use pre-generated templates from Algorithm.initialize()
             template = algo.template
             
+            # Determine node type
+            node_type = "generic"
+            if algo.id == "load_csv":
+                node_type = "csv_loader"
+
             algo_dict = {
                 "id": algo.id,
                 "name": algo.name,
@@ -47,7 +52,7 @@ def get_library_metadata():
                 "args": args_list,
                 "inputs": ports_info["inputs"],
                 "outputs": ports_info["outputs"],
-                "nodeType": "csv_loader" if algo.id == "load_csv" else "generic"
+                "nodeType": node_type
             }
             library[label].append(algo_dict)
             

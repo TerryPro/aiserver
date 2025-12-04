@@ -9,6 +9,12 @@ def box_plot(df: pd.DataFrame, y_columns: List[str] = None, group_by: str = "", 
              show_outliers: bool = True, figsize: tuple = None) -> None:
     """
     Create box plot for the given DataFrame.
+
+    Algorithm:
+        name: 箱型图绘制
+        category: 数据绘图
+        prompt: 请对 {VAR_NAME} 绘制箱型图，展示数据分布特征。支持单变量、多变量和分组箱型图。
+        imports: import pandas as pd, import matplotlib.pyplot as plt, import seaborn as sns
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -119,6 +125,12 @@ def histogram(df: pd.DataFrame, y_columns: List[str] = None, bins: int = 30, kde
               ylabel: str = "", figsize: tuple = None) -> None:
     """
     Create histogram for the given DataFrame.
+
+    Algorithm:
+        name: 直方图显示
+        category: 数据绘图
+        prompt: 请对 {VAR_NAME} 绘制直方图，展示数据分布特征。支持自定义箱数、颜色、密度曲线等设置。
+        imports: import pandas as pd, import matplotlib.pyplot as plt, import seaborn as sns
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -211,6 +223,12 @@ def density_plot(df: pd.DataFrame, y_columns: List[str] = None, layout: str = "�
                  figsize: tuple = None) -> None:
     """
     Create density plot for the given DataFrame.
+
+    Algorithm:
+        name: 密度图显示
+        category: 数据绘图
+        prompt: 请对 {VAR_NAME} 绘制密度图，展示数据分布特征。支持自定义颜色、带宽等设置。
+        imports: import pandas as pd, import matplotlib.pyplot as plt, import seaborn as sns
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -295,6 +313,12 @@ def violin_plot(df: pd.DataFrame, y_columns: List[str] = None, layout: str = "�
                 figsize: tuple = None) -> None:
     """
     Create violin plot for the given DataFrame.
+
+    Algorithm:
+        name: 小提琴图显示
+        category: 数据绘图
+        prompt: 请对 {VAR_NAME} 绘制小提琴图，展示数据分布特征。支持自定义颜色、带宽等设置。
+        imports: import pandas as pd, import matplotlib.pyplot as plt, import seaborn as sns
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
@@ -378,6 +402,12 @@ def correlation_heatmap(df: pd.DataFrame, method: str = "pearson", title: str = 
                         figsize: tuple = None, annot: bool = True, cmap: str = "coolwarm") -> None:
     """
     Create correlation heatmap for the given DataFrame.
+
+    Algorithm:
+        name: 相关性热力图
+        category: 数据绘图
+        prompt: 请对 {VAR_NAME} 进行相关性分析。使用seaborn的heatmap函数，绘制各列之间的相关性热力图。
+        imports: import pandas as pd, import matplotlib.pyplot as plt, import seaborn as sns
     
     Parameters:
     df (pandas.DataFrame): Input DataFrame.
