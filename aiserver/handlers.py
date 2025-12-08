@@ -6,7 +6,8 @@ import sys
 from datetime import datetime
 from jupyter_server.base.handlers import APIHandler
 from jupyter_server.utils import url_path_join
-from deepseek import DeepSeekClient
+from langchain_core.messages import SystemMessage, HumanMessage
+from .providers import ProviderManager
 from .config import ConfigManager
 from . import system_prompts as prompts
 from .user_prompts import construct_user_prompt
@@ -39,20 +40,12 @@ class GenerateHandler(APIHandler):
         不再使用 .env 环境变量作为回退。
         """
         try:
-            cm = ConfigManager()
-            cfg = cm.get_config()
-            provider_name = cfg.default_provider
-            provider_cfg = cm.get_provider_config(provider_name)
-
-            if provider_name == "deepseek" and provider_cfg and provider_cfg.api_key:
-                self.deepseek_client = DeepSeekClient(api_key=provider_cfg.api_key)
-                logger.info("DeepSeek客户端初始化成功 (ConfigManager)")
-            else:
-                self.deepseek_client = None
-                logger.warning("DeepSeek客户端初始化失败：未找到API密钥 (ConfigManager)")
+            self.provider_manager = ProviderManager()
+            # Try to get default provider to verify it's configured
+            self.provider_manager.get_provider()
+            logger.info("AI Provider initialized successfully")
         except Exception as e:
-            self.deepseek_client = None
-            logger.error(f"读取后端配置失败: {e}")
+            logger.error(f"Failed to initialize AI provider: {e}")
     
     # Removed @tornado.web.authenticated decorator to disable authentication
     def post(self):
@@ -95,12 +88,13 @@ class GenerateHandler(APIHandler):
     
     def generate_suggestion(self, language, source, context, intent, options, output=None, variables=None):
         """
-        Generate code suggestion based on the provided parameters using DeepSeek API.
+        Generate code suggestion based on the provided parameters using LangChain.
         """
-        # 如果没有配置API密钥，则返回示例代码
-        if not self.deepseek_client:
-            logger.warning("DeepSeek客户端未初始化，返回示例代码")
-            # 示例实现 - 实际情况下这里会调用AI服务
+        # 获取 LLM 提供者
+        try:
+            llm = self.provider_manager.get_provider()
+        except Exception as e:
+            logger.warning(f"LLM provider not available: {e}")
             if intent:
                 return f"# 根据您的描述 '{intent}' 生成的代码:\nprint('Hello from AI Assistant!')"
             else:
@@ -116,33 +110,28 @@ class GenerateHandler(APIHandler):
         logger.info(f"用户提示词长度: {len(user_prompt)} 字符")
         logger.info(f"完整用户提示词:\n{user_prompt}")
         
-        # 调用DeepSeek API
+        # 调用 AI Provider
         try:
-            logger.info("开始调用DeepSeek API...")
+            logger.info("开始调用 AI Provider...")
             start_time = datetime.now()
             
-            request_messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
+            messages = [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_prompt)
             ]
             
+            logger.info(f"请求消息数量: {len(messages)}")
             
-            logger.info(f"请求参数 - 模型: deepseek-coder, 消息数量: {len(request_messages)}, 流式: False")
-            
-            response = self.deepseek_client.chat_completion(
-                model="deepseek-coder",
-                messages=request_messages,
-                stream=False
-            )
+            response = llm.invoke(messages)
             
             end_time = datetime.now()
             duration = (end_time - start_time).total_seconds()
             
-            logger.info(f"DeepSeek API调用完成，耗时: {duration:.2f}秒")
-            logger.info(f"API响应状态: {response}")
+            logger.info(f"AI 调用完成，耗时: {duration:.2f}秒")
+            logger.info(f"API响应: {response}")
             
             # 提取生成的代码
-            suggestion = response.choices[0].message.content
+            suggestion = response.content
             logger.info(f"原始响应内容长度: {len(suggestion)} 字符")
             logger.debug(f"原始响应内容:\n{suggestion}")
             
@@ -161,7 +150,7 @@ class GenerateHandler(APIHandler):
             
             return suggestion
         except Exception as e:
-            logger.error(f"DeepSeek API调用异常: {str(e)}", exc_info=True)
+            logger.error(f"AI服务调用异常: {str(e)}", exc_info=True)
             # 如果API调用失败，返回错误信息和示例代码
             return f"# AI服务调用失败: {str(e)}\n# 示例代码:\nprint('Hello from AI Assistant!')"
     
@@ -217,20 +206,12 @@ class AnalyzeDataFrameHandler(APIHandler):
         从后端配置管理器读取默认提供商配置，不再使用 .env 回退。
         """
         try:
-            cm = ConfigManager()
-            cfg = cm.get_config()
-            provider_name = cfg.default_provider
-            provider_cfg = cm.get_provider_config(provider_name)
-
-            if provider_name == "deepseek" and provider_cfg and provider_cfg.api_key:
-                self.deepseek_client = DeepSeekClient(api_key=provider_cfg.api_key)
-                logger.info("DeepSeek客户端初始化成功 (ConfigManager)")
-            else:
-                self.deepseek_client = None
-                logger.warning("DeepSeek客户端初始化失败：未找到API密钥 (ConfigManager)")
+            self.provider_manager = ProviderManager()
+            # Try to get default provider to verify it's configured
+            self.provider_manager.get_provider()
+            logger.info("AI Provider initialized successfully")
         except Exception as e:
-            self.deepseek_client = None
-            logger.error(f"读取后端配置失败: {e}")
+            logger.error(f"Failed to initialize AI provider: {e}")
     
     # Removed @tornado.web.authenticated decorator to disable authentication
     def post(self):
@@ -269,12 +250,13 @@ class AnalyzeDataFrameHandler(APIHandler):
     
     def generate_analysis_code(self, df_name, metadata, intent):
         """
-        Generate data analysis code based on the provided parameters using DeepSeek API.
+        Generate data analysis code based on the provided parameters using LangChain.
         """
-        # 如果没有配置API密钥，则返回示例代码
-        if not self.deepseek_client:
-            logger.warning("DeepSeek客户端未初始化，返回示例代码")
-            # 示例实现 - 实际情况下这里会调用AI服务
+        # 获取 LLM 提供者
+        try:
+            llm = self.provider_manager.get_provider()
+        except Exception as e:
+            logger.warning(f"LLM provider not available: {e}")
             if intent:
                 return f"# 根据您的描述 '{intent}' 生成的数据分析代码:\nprint(df.head())"
             else:
@@ -285,32 +267,28 @@ class AnalyzeDataFrameHandler(APIHandler):
         logger.info(f"构造的数据分析提示词长度: {len(prompt)} 字符")
         logger.debug(f"完整提示词内容:\n{prompt}")
         
-        # 调用DeepSeek API
+        # 调用 AI Provider
         try:
-            logger.info("开始调用DeepSeek API进行数据分析...")
+            logger.info("开始调用 AI Provider 进行数据分析...")
             start_time = datetime.now()
             
-            request_messages = [
-                {"role": "system", "content": prompts.ANALYSIS_SYSTEM_MESSAGE},
-                {"role": "user", "content": prompt}
+            messages = [
+                SystemMessage(content=prompts.ANALYSIS_SYSTEM_MESSAGE),
+                HumanMessage(content=prompt)
             ]
             
-            logger.info(f"请求参数 - 模型: deepseek-coder, 消息数量: {len(request_messages)}, 流式: False")
+            logger.info(f"请求消息数量: {len(messages)}")
             
-            response = self.deepseek_client.chat_completion(
-                model="deepseek-coder",
-                messages=request_messages,
-                stream=False
-            )
+            response = llm.invoke(messages)
             
             end_time = datetime.now()
             duration = (end_time - start_time).total_seconds()
             
-            logger.info(f"DeepSeek API调用完成，耗时: {duration:.2f}秒")
-            logger.info(f"API响应状态: {response}")
+            logger.info(f"AI 调用完成，耗时: {duration:.2f}秒")
+            logger.info(f"API响应: {response}")
             
             # 提取生成的代码
-            suggestion = response.choices[0].message.content
+            suggestion = response.content
             logger.info(f"原始响应内容长度: {len(suggestion)} 字符")
             logger.debug(f"原始响应内容:\n{suggestion}")
             
@@ -325,7 +303,7 @@ class AnalyzeDataFrameHandler(APIHandler):
             
             return suggestion
         except Exception as e:
-            logger.error(f"DeepSeek API调用异常: {str(e)}", exc_info=True)
+            logger.error(f"AI服务调用异常: {str(e)}", exc_info=True)
             # 如果API调用失败，返回错误信息和示例代码
             return f"# AI服务调用失败: {str(e)}\n# 示例代码:\nprint(df.head())"
     
