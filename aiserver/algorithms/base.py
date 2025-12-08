@@ -123,7 +123,7 @@ class Algorithm:
                              self.outputs = [Port(name="df_out", type="DataFrame")]
             
             # 4. Generate templates
-            from ..template_generator import generate_full_template
+            from .template_generator import generate_full_template
             import inspect
             
             try:
