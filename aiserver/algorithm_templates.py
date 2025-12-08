@@ -7,7 +7,7 @@ Refactored to use aiserver.algorithms package
 
 from .algorithms import ALGORITHM_TEMPLATES, ALGORITHM_PARAMETERS, ALGORITHM_IMPORTS, all_algorithms, CATEGORY_LABELS
 # 从workflow_lib导入所有算法函数
-from .workflow_lib import *
+from algorithm import *
 import os
 
 def get_library_metadata():

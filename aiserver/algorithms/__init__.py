@@ -1,7 +1,7 @@
 import inspect
 from typing import List, Dict, Any
 from .base import Algorithm
-from ..workflow_lib import (
+from algorithm import (
     data_loading,
     data_operation,
     data_preprocessing,
