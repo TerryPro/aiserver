@@ -2,6 +2,8 @@ import json
 import tornado
 import os
 import logging
+import importlib
+import sys
 from datetime import datetime
 from dotenv import load_dotenv
 from jupyter_server.base.handlers import APIHandler
@@ -364,7 +366,7 @@ class AnalyzeDataFrameHandler(APIHandler):
         return final_prompt
 
 
-from .algorithm_prompts import ALGORITHM_PROMPTS
+from . import algorithm_prompts
 from . import algorithm_templates
 
 class GetFunctionLibraryHandler(APIHandler):
@@ -381,7 +383,62 @@ class GetFunctionLibraryHandler(APIHandler):
 class GetAlgorithmPromptsHandler(APIHandler):
     # Removed @tornado.web.authenticated decorator to disable authentication
     def get(self):
-        self.finish(json.dumps(ALGORITHM_PROMPTS, ensure_ascii=False))
+        self.finish(json.dumps(algorithm_prompts.ALGORITHM_PROMPTS, ensure_ascii=False))
+
+class ReloadFunctionLibraryHandler(APIHandler):
+    # Removed @tornado.web.authenticated decorator to disable authentication
+    def post(self):
+        try:
+            logger.info("Reloading function library...")
+            
+            # 1. Reload base library modules
+            # We need to reload submodules first, then the package
+            submodules = [
+                'algorithm.data_loading',
+                'algorithm.data_operation',
+                'algorithm.data_preprocessing',
+                'algorithm.eda',
+                'algorithm.anomaly_detection',
+                'algorithm.trend',
+                'algorithm.plotting',
+            ]
+            
+            for module_name in submodules:
+                if module_name in sys.modules:
+                    try:
+                        importlib.reload(sys.modules[module_name])
+                        logger.info(f"Reloaded {module_name}")
+                    except Exception as e:
+                        logger.warning(f"Failed to reload {module_name}: {e}")
+
+            if 'algorithm' in sys.modules:
+                importlib.reload(sys.modules['algorithm'])
+                logger.info("Reloaded algorithm package")
+
+            # 2. Reload aiserver adapters
+            # aiserver.algorithms depends on algorithm
+            if 'aiserver.algorithms' in sys.modules:
+                importlib.reload(sys.modules['aiserver.algorithms'])
+                logger.info("Reloaded aiserver.algorithms")
+            
+            # aiserver.algorithm_templates depends on aiserver.algorithms
+            if 'aiserver.algorithm_templates' in sys.modules:
+                importlib.reload(sys.modules['aiserver.algorithm_templates'])
+                logger.info("Reloaded aiserver.algorithm_templates")
+
+            # aiserver.algorithm_prompts depends on aiserver.algorithms
+            if 'aiserver.algorithm_prompts' in sys.modules:
+                importlib.reload(sys.modules['aiserver.algorithm_prompts'])
+                logger.info("Reloaded aiserver.algorithm_prompts")
+            
+            # 3. Fetch new metadata
+            library = algorithm_templates.get_library_metadata()
+            self.finish(json.dumps(library, ensure_ascii=False))
+            
+        except Exception as e:
+            logger.error(f"Failed to reload function library: {e}", exc_info=True)
+            self.set_status(500)
+            self.finish(json.dumps({"error": str(e)}))
 
 class GetCSVColumnsHandler(APIHandler):
     # Removed @tornado.web.authenticated decorator to disable authentication
@@ -439,6 +496,7 @@ def setup_handlers(web_app):
         (url_path_join(base_url, "aiserver", "analyze-dataframe"), AnalyzeDataFrameHandler),
         (url_path_join(base_url, "aiserver", "algorithm-prompts"), GetAlgorithmPromptsHandler),
         (url_path_join(base_url, "aiserver", "function-library"), GetFunctionLibraryHandler),
+        (url_path_join(base_url, "aiserver", "reload-library"), ReloadFunctionLibraryHandler),
         (url_path_join(base_url, "aiserver", "get-csv-columns"), GetCSVColumnsHandler),
         (url_path_join(base_url, "aiserver", "get-server-root"), GetServerRootHandler),
         (url_path_join(base_url, "aiserver", "get-example"), RouteHandler)
