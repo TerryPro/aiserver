@@ -1,14 +1,13 @@
 import json
 import tornado
-import os
 import logging
 import importlib
 import sys
 from datetime import datetime
-from dotenv import load_dotenv
 from jupyter_server.base.handlers import APIHandler
 from jupyter_server.utils import url_path_join
 from deepseek import DeepSeekClient
+from .config import ConfigManager
 from . import system_prompts as prompts
 from .user_prompts import construct_user_prompt
 
@@ -34,18 +33,26 @@ class RouteHandler(APIHandler):
 
 class GenerateHandler(APIHandler):
     def initialize(self):
-        # Load environment variables from .env file
-        load_dotenv()
-        
-        # Initialize DeepSeek client
-        api_key = os.environ.get("DEEPSEEK_API_KEY")
-        self.deepseek_client = DeepSeekClient(api_key=api_key) if api_key else None
-        
-        # 记录客户端初始化信息
-        if self.deepseek_client:
-            logger.info("DeepSeek客户端初始化成功")
-        else:
-            logger.warning("DeepSeek客户端初始化失败：未找到API密钥")
+        """初始化生成服务处理器
+
+        从后端配置管理器读取默认提供商参数（API Key、模型等），
+        不再使用 .env 环境变量作为回退。
+        """
+        try:
+            cm = ConfigManager()
+            cfg = cm.get_config()
+            provider_name = cfg.default_provider
+            provider_cfg = cm.get_provider_config(provider_name)
+
+            if provider_name == "deepseek" and provider_cfg and provider_cfg.api_key:
+                self.deepseek_client = DeepSeekClient(api_key=provider_cfg.api_key)
+                logger.info("DeepSeek客户端初始化成功 (ConfigManager)")
+            else:
+                self.deepseek_client = None
+                logger.warning("DeepSeek客户端初始化失败：未找到API密钥 (ConfigManager)")
+        except Exception as e:
+            self.deepseek_client = None
+            logger.error(f"读取后端配置失败: {e}")
     
     # Removed @tornado.web.authenticated decorator to disable authentication
     def post(self):
@@ -205,18 +212,25 @@ class GenerateHandler(APIHandler):
 
 class AnalyzeDataFrameHandler(APIHandler):
     def initialize(self):
-        # Load environment variables from .env file
-        load_dotenv()
-        
-        # Initialize DeepSeek client
-        api_key = os.environ.get("DEEPSEEK_API_KEY")
-        self.deepseek_client = DeepSeekClient(api_key=api_key) if api_key else None
-        
-        # 记录客户端初始化信息
-        if self.deepseek_client:
-            logger.info("DeepSeek客户端初始化成功")
-        else:
-            logger.warning("DeepSeek客户端初始化失败：未找到API密钥")
+        """初始化数据分析处理器
+
+        从后端配置管理器读取默认提供商配置，不再使用 .env 回退。
+        """
+        try:
+            cm = ConfigManager()
+            cfg = cm.get_config()
+            provider_name = cfg.default_provider
+            provider_cfg = cm.get_provider_config(provider_name)
+
+            if provider_name == "deepseek" and provider_cfg and provider_cfg.api_key:
+                self.deepseek_client = DeepSeekClient(api_key=provider_cfg.api_key)
+                logger.info("DeepSeek客户端初始化成功 (ConfigManager)")
+            else:
+                self.deepseek_client = None
+                logger.warning("DeepSeek客户端初始化失败：未找到API密钥 (ConfigManager)")
+        except Exception as e:
+            self.deepseek_client = None
+            logger.error(f"读取后端配置失败: {e}")
     
     # Removed @tornado.web.authenticated decorator to disable authentication
     def post(self):
@@ -499,7 +513,26 @@ def setup_handlers(web_app):
         (url_path_join(base_url, "aiserver", "reload-library"), ReloadFunctionLibraryHandler),
         (url_path_join(base_url, "aiserver", "get-csv-columns"), GetCSVColumnsHandler),
         (url_path_join(base_url, "aiserver", "get-server-root"), GetServerRootHandler),
-        (url_path_join(base_url, "aiserver", "get-example"), RouteHandler)
+        (url_path_join(base_url, "aiserver", "get-example"), RouteHandler),
+        (url_path_join(base_url, "aiserver", "config"), ConfigHandler)
     ]
     
     web_app.add_handlers(host_pattern, handlers)
+from .config import ConfigManager
+class ConfigHandler(APIHandler):
+    def get(self):
+        """返回当前后端配置，用于前端同步显示"""
+        cm = ConfigManager()
+        self.finish(cm.get_config().model_dump_json())
+
+    def put(self):
+        """更新后端配置并持久化到 aiserver_config.json"""
+        try:
+            data = self.get_json_body() or {}
+            cm = ConfigManager()
+            cm.update_config(data)
+            self.finish(cm.get_config().model_dump_json())
+        except Exception as e:
+            logger.error(f"Failed to update config: {e}")
+            self.set_status(400)
+            self.finish(json.dumps({"error": str(e)}))

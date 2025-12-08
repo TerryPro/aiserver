@@ -8,7 +8,8 @@ from algorithm import (
     eda,
     anomaly_detection,
     trend,
-    plotting
+    plotting,
+    CATEGORY_LABELS
 )
 
 # Modules to scan for algorithms
@@ -66,16 +67,6 @@ for algo in all_algorithms:
         ALGORITHM_IMPORTS[algo.id] = algo.imports
 
 # Reconstruct ALGORITHM_PROMPTS
-CATEGORY_LABELS = {
-    "load_data": "输入输出",
-    "data_operation": "数据操作",
-    "data_preprocessing": "数据预处理",
-    "eda": "探索式分析",
-    "anomaly_detection": "异常检测",
-    "trend_plot": "趋势绘制",
-    "数据绘图": "数据绘图"
-}
-
 ALGORITHM_PROMPTS = {
     cat: {"label": label, "algorithms": []}
     for cat, label in CATEGORY_LABELS.items()
