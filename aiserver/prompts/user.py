@@ -1,6 +1,8 @@
 import logging
 
-logger = logging.getLogger(__name__)
+from ..core.log import get_llm_logger
+
+llm_logger = get_llm_logger()
 
 def construct_user_prompt(language, source, context, intent, options, output=None, variables=None):
     prompt_parts = []
@@ -32,6 +34,6 @@ def construct_user_prompt(language, source, context, intent, options, output=Non
     prompt_parts.append(output if output else "")
     prompt_parts.append("\n</OUTPUT>")
     final_prompt = "\n".join(prompt_parts)
-    logger.info(f"提示词构造完成，总长度: {len(final_prompt)} 字符")
+    llm_logger.info(f"提示词构造完成，总长度: {len(final_prompt)} 字符")
     return final_prompt
 

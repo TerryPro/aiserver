@@ -4,16 +4,10 @@ from .code_gen import GenerateHandler
 from .data_analysis import AnalyzeDataFrameHandler, GetCSVColumnsHandler
 from .library import GetFunctionLibraryHandler, GetAlgorithmPromptsHandler, ReloadFunctionLibraryHandler
 from .system import GetServerRootHandler, RouteHandler, ConfigHandler
+from ..core.log import setup_logging
 
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('deepseek_debug.log', encoding='utf-8'),
-        logging.StreamHandler()
-    ]
-)
+# 配置日志系统
+setup_logging()
 
 def setup_handlers(web_app):
     host_pattern = ".*$"

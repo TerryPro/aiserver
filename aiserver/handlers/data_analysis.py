@@ -7,8 +7,10 @@ from jupyter_server.base.handlers import APIHandler
 from langchain_core.messages import SystemMessage, HumanMessage
 from ..core.providers import ProviderManager
 from ..prompts import system as prompts
+from ..core.log import get_llm_logger
 
 logger = logging.getLogger(__name__)
+llm_logger = get_llm_logger()
 
 class AnalyzeDataFrameHandler(APIHandler):
     def initialize(self):
@@ -29,29 +31,29 @@ class AnalyzeDataFrameHandler(APIHandler):
         try:
             # Parse the request body
             data = self.get_json_body()
-            logger.info(f"收到数据分析请求: {json.dumps(data, ensure_ascii=False, indent=2)}")
+            llm_logger.info(f"收到数据分析请求: {json.dumps(data, ensure_ascii=False, indent=2)}")
             
             # Extract parameters
             df_name = data.get("dfName", "")
             metadata = data.get("metadata", {})
             intent = data.get("intent", "")
             
-            logger.info(f"请求参数 - DataFrame名称: {df_name}, 意图: {intent}")
+            llm_logger.info(f"请求参数 - DataFrame名称: {df_name}, 意图: {intent}")
             
             # Generate data analysis code based on the provided parameters
             suggestion = self.generate_analysis_code(df_name, metadata, intent)
             
-            logger.info(f"生成的分析代码长度: {len(suggestion)} 字符")
+            llm_logger.info(f"生成的分析代码长度: {len(suggestion)} 字符")
             
             # Send the response
             response = json.dumps({
                 "suggestion": suggestion,
                 "explanation": "这是一个由AI助手生成的数据分析代码"
             })
-            logger.info("成功返回数据分析代码")
+            llm_logger.info("成功返回数据分析代码")
             self.finish(response)
         except Exception as e:
-            logger.error(f"数据分析服务调用异常: {str(e)}", exc_info=True)
+            llm_logger.error(f"数据分析服务调用异常: {str(e)}", exc_info=True)
             self.set_status(500)
             self.finish(json.dumps({
                 "error": f"数据分析服务调用失败: {str(e)}",
@@ -75,12 +77,12 @@ class AnalyzeDataFrameHandler(APIHandler):
         
         # 构造提示词
         prompt = self.construct_analysis_prompt(df_name, metadata, intent)
-        logger.info(f"构造的数据分析提示词长度: {len(prompt)} 字符")
-        logger.debug(f"完整提示词内容:\n{prompt}")
+        llm_logger.info(f"构造的数据分析提示词长度: {len(prompt)} 字符")
+        llm_logger.debug(f"完整提示词内容:\n{prompt}")
         
         # 调用 AI Provider
         try:
-            logger.info("开始调用 AI Provider 进行数据分析...")
+            llm_logger.info("开始调用 AI Provider 进行数据分析...")
             start_time = datetime.now()
             
             messages = [
@@ -88,33 +90,33 @@ class AnalyzeDataFrameHandler(APIHandler):
                 HumanMessage(content=prompt)
             ]
             
-            logger.info(f"请求消息数量: {len(messages)}")
+            llm_logger.info(f"请求消息数量: {len(messages)}")
             
             response = llm.invoke(messages)
             
             end_time = datetime.now()
             duration = (end_time - start_time).total_seconds()
             
-            logger.info(f"AI 调用完成，耗时: {duration:.2f}秒")
-            logger.info(f"API响应: {response}")
+            llm_logger.info(f"AI 调用完成，耗时: {duration:.2f}秒")
+            llm_logger.info(f"API响应: {response}")
             
             # 提取生成的代码
             suggestion = response.content
-            logger.info(f"原始响应内容长度: {len(suggestion)} 字符")
-            logger.debug(f"原始响应内容:\n{suggestion}")
+            llm_logger.info(f"原始响应内容长度: {len(suggestion)} 字符")
+            llm_logger.debug(f"原始响应内容:\n{suggestion}")
             
             # 移除可能的markdown代码块标记
             if suggestion.startswith("```"):
-                logger.info("检测到markdown代码块标记，正在清理...")
+                llm_logger.info("检测到markdown代码块标记，正在清理...")
                 lines = suggestion.split("\n")
                 if len(lines) > 2:
                     suggestion = "\n".join(lines[1:-1])
-                    logger.info(f"清理后内容长度: {len(suggestion)} 字符")
-                    logger.debug(f"清理后内容:\n{suggestion}")
+                    llm_logger.info(f"清理后内容长度: {len(suggestion)} 字符")
+                    llm_logger.debug(f"清理后内容:\n{suggestion}")
             
             return suggestion
         except Exception as e:
-            logger.error(f"AI服务调用异常: {str(e)}", exc_info=True)
+            llm_logger.error(f"AI服务调用异常: {str(e)}", exc_info=True)
             # 如果API调用失败，返回错误信息和示例代码
             return f"# AI服务调用失败: {str(e)}\n# 示例代码:\nprint(df.head())"
     
@@ -122,22 +124,22 @@ class AnalyzeDataFrameHandler(APIHandler):
         """
         Construct a prompt for the AI model based on the provided parameters.
         """
-        logger.info("开始构造数据分析提示词...")
+        llm_logger.info("开始构造数据分析提示词...")
         prompt_parts = []
         
         # 系统指令
         system_instruction = prompts.ANALYSIS_SYSTEM_INSTRUCTION
         prompt_parts.append(system_instruction)
-        logger.info(f"添加系统指令: {system_instruction}")
+        llm_logger.info(f"添加系统指令: {system_instruction}")
         
         # 添加意图描述
         if intent:
             intent_text = f"请根据以下描述生成数据分析代码: {intent}"
             prompt_parts.append(intent_text)
-            logger.info(f"添加意图描述: {intent}")
+            llm_logger.info(f"添加意图描述: {intent}")
         else:
             prompt_parts.append("请生成一些有用的数据分析代码:")
-            logger.info("添加默认数据分析代码生成请求")
+            llm_logger.info("添加默认数据分析代码生成请求")
         
         # 添加DataFrame元数据
         if metadata:
@@ -154,17 +156,17 @@ class AnalyzeDataFrameHandler(APIHandler):
             if metadata.get("dtypes"):
                 prompt_parts.append(f"- 数据类型: {metadata['dtypes']}")
             
-            logger.info(f"添加DataFrame元数据: {json.dumps(metadata, ensure_ascii=False)}")
+            llm_logger.info(f"添加DataFrame元数据: {json.dumps(metadata, ensure_ascii=False)}")
         else:
-            logger.info("未提供DataFrame元数据")
+            llm_logger.info("未提供DataFrame元数据")
         
         # 添加特定指令
         prompt_parts.extend(prompts.ANALYSIS_REQUIREMENTS)
         
-        logger.info("添加数据分析指令和要求")
+        llm_logger.info("添加数据分析指令和要求")
         
         final_prompt = "\n".join(prompt_parts)
-        logger.info(f"数据分析提示词构造完成，总长度: {len(final_prompt)} 字符")
+        llm_logger.info(f"数据分析提示词构造完成，总长度: {len(final_prompt)} 字符")
         
         return final_prompt
 
