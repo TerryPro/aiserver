@@ -4,8 +4,25 @@ from ..core.log import get_llm_logger
 
 llm_logger = get_llm_logger()
 
-def construct_user_prompt(language, source, context, intent, options, output=None, variables=None):
+def construct_user_prompt(language, source, context, intent, options, output=None, variables=None, history=None):
     prompt_parts = []
+    
+    # Add history if provided
+    if history:
+        prompt_parts.append("# 历史对话 (Conversation History)")
+        prompt_parts.append("这是针对当前代码单元的过往对话记录，请参考这些上下文来理解用户的最新意图。")
+        prompt_parts.append("<HISTORY>")
+        if isinstance(history, list):
+            for msg in history:
+                if hasattr(msg, 'type') and hasattr(msg, 'content'):
+                    role = "AI" if msg.type == 'ai' else "User"
+                    prompt_parts.append(f"[{role}]: {msg.content}")
+                else:
+                    prompt_parts.append(str(msg))
+        else:
+            prompt_parts.append(str(history))
+        prompt_parts.append("</HISTORY>\n")
+
     prompt_parts.append("# 用户意图 (User Intent)")
     if intent:
         prompt_parts.append(intent)

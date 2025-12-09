@@ -4,6 +4,8 @@ from .code_gen import GenerateHandler
 from .data_analysis import AnalyzeDataFrameHandler, GetCSVColumnsHandler
 from .library import GetFunctionLibraryHandler, GetAlgorithmPromptsHandler, ReloadFunctionLibraryHandler
 from .system import GetServerRootHandler, RouteHandler, ConfigHandler
+from .session import SessionHistoryHandler
+from .models import ModelsHandler
 from ..core.log import setup_logging
 
 # 配置日志系统
@@ -17,6 +19,8 @@ def setup_handlers(web_app):
     # 定义路由
     handlers = [
         (url_path_join(base_url, "aiserver", "generate"), GenerateHandler),
+        (url_path_join(base_url, "aiserver", "sessions"), SessionHistoryHandler),
+        (url_path_join(base_url, "aiserver", "models"), ModelsHandler),
         (url_path_join(base_url, "aiserver", "analyze-dataframe"), AnalyzeDataFrameHandler),
         (url_path_join(base_url, "aiserver", "algorithm-prompts"), GetAlgorithmPromptsHandler),
         (url_path_join(base_url, "aiserver", "function-library"), GetFunctionLibraryHandler),
