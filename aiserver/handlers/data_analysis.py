@@ -76,9 +76,9 @@ class AnalyzeDataFrameHandler(APIHandler):
                 return "# 示例数据分析代码:\nprint(df.head())"
         
         # 构造提示词
-        prompt = self.construct_analysis_prompt(df_name, metadata, intent)
-        llm_logger.info(f"构造的数据分析提示词长度: {len(prompt)} 字符")
-        llm_logger.debug(f"完整提示词内容:\n{prompt}")
+        user_prompt = self.construct_analysis_prompt(df_name, metadata, intent)
+        llm_logger.info(f"构造的数据分析用户提示词长度: {len(user_prompt)} 字符")
+        llm_logger.debug(f"用户提示词内容:\n{user_prompt}")
         
         # 调用 AI Provider
         try:
@@ -86,8 +86,8 @@ class AnalyzeDataFrameHandler(APIHandler):
             start_time = datetime.now()
             
             messages = [
-                SystemMessage(content=prompts.ANALYSIS_SYSTEM_MESSAGE),
-                HumanMessage(content=prompt)
+                SystemMessage(content=prompts.CREATE_SYSTEM_PROMPT),
+                HumanMessage(content=user_prompt)
             ]
             
             llm_logger.info(f"请求消息数量: {len(messages)}")
@@ -127,11 +127,6 @@ class AnalyzeDataFrameHandler(APIHandler):
         llm_logger.info("开始构造数据分析提示词...")
         prompt_parts = []
         
-        # 系统指令
-        system_instruction = prompts.ANALYSIS_SYSTEM_INSTRUCTION
-        prompt_parts.append(system_instruction)
-        llm_logger.info(f"添加系统指令: {system_instruction}")
-        
         # 添加意图描述
         if intent:
             intent_text = f"请根据以下描述生成数据分析代码: {intent}"
@@ -159,11 +154,6 @@ class AnalyzeDataFrameHandler(APIHandler):
             llm_logger.info(f"添加DataFrame元数据: {json.dumps(metadata, ensure_ascii=False)}")
         else:
             llm_logger.info("未提供DataFrame元数据")
-        
-        # 添加特定指令
-        prompt_parts.extend(prompts.ANALYSIS_REQUIREMENTS)
-        
-        llm_logger.info("添加数据分析指令和要求")
         
         final_prompt = "\n".join(prompt_parts)
         llm_logger.info(f"数据分析提示词构造完成，总长度: {len(final_prompt)} 字符")

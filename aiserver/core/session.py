@@ -20,6 +20,8 @@ class AIResponse(BaseModel):
     explanation: str
     status: str = "success"
     error: Optional[str] = None
+    summary: Optional[str] = None
+    detailed_summary: Optional[str] = None
 
 class Interaction(BaseModel):
     turn_id: int
@@ -138,3 +140,13 @@ class SessionManager:
         """Get LangChain-formatted history for context injection."""
         session = self.load_session(notebook_id, cell_id)
         return session.to_langchain_history()
+
+    def update_last_interaction_summary(self, notebook_id: str, cell_id: str, summary: str, detailed_summary: Optional[str] = None):
+        """Update the summary of the last interaction."""
+        session = self.load_session(notebook_id, cell_id)
+        if session.interactions:
+            session.interactions[-1].ai_response.summary = summary
+            if detailed_summary:
+                session.interactions[-1].ai_response.detailed_summary = detailed_summary
+            session.last_updated = datetime.now()
+            self._save_session_file(session)

@@ -1,108 +1,134 @@
-"""
-Context Manager for AI Server
-Handles variable formatting, prompt construction, and token management.
-"""
-from typing import Dict, List, Any, Optional
+import logging
+from typing import List, Dict, Optional, Union
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, AIMessage
+from ..utils.code_analysis import extract_code_metadata
 
-class ContextManager:
+logger = logging.getLogger(__name__)
+
+class ContextOptimizer:
     """
-    Manages context for AI interactions, including variable formatting and prompt construction.
+    上下文优化器
+    负责管理和优化发送给 LLM 的上下文，包括：
+    1. Token 估算
+    2. 代码上下文压缩 (保留最近的完整代码，旧代码仅保留元数据)
+    3. 历史记录裁剪
     """
     
-    def __init__(self, max_tokens: int = 4000):
-        self.max_tokens = max_tokens
+    def __init__(self, max_total_tokens: int = 8000, max_history_tokens: int = 2000):
+        self.max_total_tokens = max_total_tokens
+        self.max_history_tokens = max_history_tokens
+        
+    def estimate_tokens(self, text: str) -> int:
+        """
+        估算文本的 Token 数量 (粗略估算：1 Token ≈ 4 字符)
+        """
+        if not text:
+            return 0
+        return len(text) // 4
 
-    def format_variables(self, variables: Optional[Dict[str, Any]]) -> str:
+    def optimize_code_context(self, prev_codes: List[str], max_tokens: int = 3000) -> str:
         """
-        Format a dictionary of variables into a context string.
-        
-        Args:
-            variables: Dictionary mapping variable names to their values or metadata.
-            
-        Returns:
-            Formatted context string.
+        优化前序代码上下文
+        策略：
+        1. 最近的代码单元（例如最后1-2个）保留完整代码
+        2. 较旧的代码单元仅保留元数据（变量、函数、类定义）
+        3. 确保不超过 max_tokens
         """
-        if not variables:
-            return "No variables available."
+        if not prev_codes:
+            return ""
             
-        context_lines = ["Active Variables:"]
-        for name, value in variables.items():
-            # Handle dictionary with metadata (type, value, etc.) if provided
-            if isinstance(value, dict) and 'type' in value and 'value' in value:
-                var_type = value.get('type', 'unknown')
-                var_value = value.get('value', '')
-                line = f"- {name} ({var_type}): {self._truncate(str(var_value))}"
-            else:
-                # Simple value
-                line = f"- {name}: {self._truncate(str(value))}"
-            context_lines.append(line)
-            
-        return "\n".join(context_lines)
-
-    def _truncate(self, text: str, max_length: int = 200) -> str:
-        """Truncate text to max_length."""
-        if len(text) <= max_length:
-            return text
-        return text[:max_length] + "... (truncated)"
-
-    def construct_messages(
-        self, 
-        system_prompt: str, 
-        user_query: str, 
-        variable_context: str, 
-        history: List[Dict[str, str]]
-    ) -> List[BaseMessage]:
-        """
-        Construct the list of messages for the LLM.
+        optimized_parts = []
+        current_tokens = 0
         
-        Args:
-            system_prompt: The base system instruction.
-            user_query: The current user message.
-            variable_context: Formatted variable context string.
-            history: List of previous messages ({'role': 'user'/'assistant', 'content': '...'}).
-            
-        Returns:
-            List of LangChain BaseMessage objects.
-        """
-        messages: List[BaseMessage] = []
-        
-        # 1. System Message with Context
-        full_system_content = f"{system_prompt}\n\n{variable_context}"
-        messages.append(SystemMessage(content=full_system_content))
-        
-        # 2. History
-        for msg in history:
-            role = msg.get('role')
-            content = msg.get('content')
-            if role == 'user':
-                messages.append(HumanMessage(content=content))
-            elif role == 'assistant':
-                messages.append(AIMessage(content=content))
+        # 倒序处理，优先保留最近的代码
+        for i, code in enumerate(reversed(prev_codes)):
+            if not code or not code.strip():
+                continue
                 
-        # 3. Current User Message
-        messages.append(HumanMessage(content=user_query))
-        
-        return messages
-
-    def count_tokens(self, text: str) -> int:
-        """
-        Estimate token count (approximate).
-        For production, use tiktoken or provider-specific tokenizers.
-        """
-        # Rough estimation: 1 token ~= 4 chars (English) or 0.7 chars (Chinese)
-        # Using a conservative average for mixed content
-        return len(text) // 3
-
-    def trim_history(self, history: List[Dict[str, str]], max_history_tokens: int) -> List[Dict[str, str]]:
-        """
-        Trim history to fit within token limits.
-        Removes oldest messages first.
-        """
-        current_tokens = sum(self.count_tokens(msg['content']) for msg in history)
-        
-        while current_tokens > max_history_tokens and history:
-            removed = history.pop(0)
-            current_tokens -= self.count_tokens(removed['content'])
+            cell_index = len(prev_codes) - 1 - i
+            part_content = ""
             
-        return history
+            # 最近的 2 个单元格，尝试保留完整代码
+            if i < 2:
+                if len(code) < 2000: # 如果单格太大，也强制压缩
+                    part_content = f"\n# Cell {cell_index}\n{code}\n"
+                else:
+                    part_content = self._compress_code(code, cell_index)
+            else:
+                # 较旧的单元格，压缩为元数据
+                part_content = self._compress_code(code, cell_index)
+            
+            part_tokens = self.estimate_tokens(part_content)
+            
+            if current_tokens + part_tokens > max_tokens:
+                logger.info(f"Code context limit reached at cell {cell_index}")
+                break
+                
+            optimized_parts.insert(0, part_content)
+            current_tokens += part_tokens
+            
+        if not optimized_parts:
+            return ""
+            
+        return "\n<PREVIOUS_CODE>\n" + "".join(optimized_parts) + "</PREVIOUS_CODE>\n"
+
+    def _compress_code(self, code: str, cell_index: int) -> str:
+        """将代码压缩为元数据摘要"""
+        metadata = extract_code_metadata(code)
+        summary_lines = [f"# Cell {cell_index} (Summary)"]
+        
+        if metadata["variables"]:
+            vars_str = ", ".join([v["name"] for v in metadata["variables"]])
+            summary_lines.append(f"# Variables: {vars_str}")
+            
+        if metadata["functions"]:
+            for f in metadata["functions"]:
+                args = ", ".join(f["args"])
+                doc = f.get('doc') or ""
+                summary_lines.append(f"def {f['name']}({args}): ... # {doc.strip()[:50]}")
+                
+        if metadata["classes"]:
+            for c in metadata["classes"]:
+                doc = c.get('doc') or ""
+                summary_lines.append(f"class {c['name']}: ... # {doc.strip()[:50]}")
+        
+        # 如果没有任何元数据，且代码不长，保留前几行
+        if not (metadata["variables"] or metadata["functions"] or metadata["classes"]):
+            lines = code.split('\n')
+            preview = "\n".join(lines[:3])
+            if len(lines) > 3:
+                preview += "\n..."
+            summary_lines.append(preview)
+            
+        return "\n".join(summary_lines) + "\n" + "-"*20 + "\n"
+
+    def optimize_history(self, history: List[BaseMessage]) -> List[BaseMessage]:
+        """
+        裁剪历史记录以适应 Token 限制
+        保留系统消息和最近的消息
+        """
+        if not history:
+            return []
+            
+        optimized_history = []
+        current_tokens = 0
+        
+        # 始终保留系统消息（如果有）
+        # 注意：在 LangChain history 中通常不包含 SystemMessage，它是在 PromptTemplate 中添加的
+        # 但如果 history 中包含，我们需要保留
+        
+        # 倒序遍历消息
+        for msg in reversed(history):
+            content = msg.content
+            if isinstance(content, str):
+                tokens = self.estimate_tokens(content)
+            else:
+                tokens = 0 # 忽略复杂内容
+            
+            if current_tokens + tokens > self.max_history_tokens:
+                break
+                
+            optimized_history.insert(0, msg)
+            current_tokens += tokens
+            
+        return optimized_history
