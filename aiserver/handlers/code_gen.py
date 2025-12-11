@@ -73,7 +73,7 @@ class GenerateHandler(APIHandler):
             # Generate code suggestion based on the provided parameters
             suggestion = self.generate_suggestion(
                 language, source, context, intent, options, output, variables, history,
-                notebook_id=notebook_id, cell_id=cell_id
+                notebook_id=notebook_id, cell_id=cell_id, data=data
             )
                       
             # Task 5: Generate Summary & Update History
@@ -119,10 +119,12 @@ class GenerateHandler(APIHandler):
                 "explanation": "AI服务暂时不可用，请稍后再试"
             }))
     
-    def generate_suggestion(self, language, source, context, intent, options, output=None, variables=None, history=None, notebook_id=None, cell_id=None):
+    def generate_suggestion(self, language, source, context, intent, options, output=None, variables=None, history=None, notebook_id=None, cell_id=None, data=None):
         """
         Generate code suggestion based on the provided parameters using LangChain.
         """
+        if data is None:
+            data = {}
         # 获取 LLM 提供者
         try:
             llm = self.provider_manager.get_provider()
@@ -166,7 +168,10 @@ class GenerateHandler(APIHandler):
         self.context_optimizer.max_history_tokens = history_limit
         
         # 提取跨Cell上下文 (传入限制)
-        cross_cell_context = self._extract_cross_cell_context(context, max_tokens=context_limit)
+        include_context = data.get("include_context", False)
+        cross_cell_context = ""
+        if include_context:
+            cross_cell_context = self._extract_cross_cell_context(context, max_tokens=context_limit)
         
         # 注意：这里我们暂时仍然使用 construct_user_prompt 来生成 User Input 字符串，
         # 但在后续任务中，我们可以将其拆解为 Prompt Template 的一部分
