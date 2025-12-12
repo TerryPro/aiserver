@@ -2,7 +2,7 @@ import logging
 from jupyter_server.utils import url_path_join
 from .code_gen import GenerateHandler
 from .data_analysis import AnalyzeDataFrameHandler, GetCSVColumnsHandler
-from .library import GetFunctionLibraryHandler, GetAlgorithmPromptsHandler, ReloadFunctionLibraryHandler
+from .library import GetFunctionLibraryHandler, GetAlgorithmPromptsHandler, ReloadFunctionLibraryHandler, ManageAlgorithmHandler
 from .system import GetServerRootHandler, RouteHandler, ConfigHandler
 from .session import SessionHistoryHandler
 from .models import ModelsHandler
@@ -25,6 +25,7 @@ def setup_handlers(web_app):
         (url_path_join(base_url, "aiserver", "algorithm-prompts"), GetAlgorithmPromptsHandler),
         (url_path_join(base_url, "aiserver", "function-library"), GetFunctionLibraryHandler),
         (url_path_join(base_url, "aiserver", "reload-library"), ReloadFunctionLibraryHandler),
+        (url_path_join(base_url, "aiserver", "algorithm-manage"), ManageAlgorithmHandler),
         (url_path_join(base_url, "aiserver", "get-csv-columns"), GetCSVColumnsHandler),
         (url_path_join(base_url, "aiserver", "get-server-root"), GetServerRootHandler),
         (url_path_join(base_url, "aiserver", "get-example"), RouteHandler),
