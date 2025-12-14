@@ -123,6 +123,31 @@ class ManageAlgorithmHandler(APIHandler):
                 self.finish(json.dumps({"code": code}))
                 return
 
+            elif action == "generate_code":
+                metadata = data.get("metadata")
+                existing_code = data.get("code")  # Optional
+                if not metadata:
+                    self.set_status(400)
+                    self.finish(json.dumps({"error": "Missing metadata"}))
+                    return
+                code = code_manager.generate_function_code(metadata, existing_code)
+                self.finish(json.dumps({"code": code}))
+                return
+
+            elif action == "parse_code":
+                code = data.get("code")
+                if not code:
+                    self.set_status(400)
+                    self.finish(json.dumps({"error": "Missing code"}))
+                    return
+                metadata = code_manager.parse_function_code(code)
+                if metadata is None:
+                    self.set_status(400)
+                    self.finish(json.dumps({"error": "Failed to parse code"}))
+                    return
+                self.finish(json.dumps({"metadata": metadata}))
+                return
+
             else:
                 self.set_status(400)
                 self.finish(json.dumps({"error": "Invalid action"}))

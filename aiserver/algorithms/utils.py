@@ -4,10 +4,9 @@ import ast
 from typing import List, Dict, Any, Optional, Callable
 from .base import AlgorithmParameter
 
-def extract_imports_from_func(func: Callable) -> List[str]:
-    """Extract import statements from function source code."""
+def extract_imports_from_source(source: str) -> List[str]:
+    """Extract import statements from source code string."""
     try:
-        source = inspect.getsource(func)
         imports = []
         tree = ast.parse(source)
         for node in ast.walk(tree):
@@ -19,6 +18,15 @@ def extract_imports_from_func(func: Callable) -> List[str]:
                 for name in node.names:
                     imports.append(f"from {module} import {name.name}")
         return imports
+    except Exception as e:
+        # print(f"Warning: Failed to extract imports from source: {e}")
+        return []
+
+def extract_imports_from_func(func: Callable) -> List[str]:
+    """Extract import statements from function source code."""
+    try:
+        source = inspect.getsource(func)
+        return extract_imports_from_source(source)
     except Exception as e:
         print(f"Warning: Failed to extract imports from {func.__name__}: {e}")
         return []
