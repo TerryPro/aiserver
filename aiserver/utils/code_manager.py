@@ -1,7 +1,7 @@
 import os
 import ast
 import logging
-from ..algorithms.utils import parse_algorithm_metadata, parse_docstring_params, extract_imports_from_source
+from ..algorithms.utils import parse_algorithm_metadata, parse_docstring_params, extract_imports_from_source, parse_docstring_returns
 
 logger = logging.getLogger(__name__)
 
@@ -159,13 +159,44 @@ def generate_function_code(metadata: dict, existing_code: str = None) -> str:
     inputs = metadata.get('inputs', [])
     outputs = metadata.get('outputs', [])
     
+    def normalize_type(t: str) -> str:
+        if t == 'DataFrame': return 'pd.DataFrame'
+        if t == 'tuple': return 'tuple'
+        return t
+
     # Merge imports from existing code if available
     if existing_code:
         try:
             existing_imports = extract_imports_from_source(existing_code)
+            
+            # Build a set of imported module names to avoid duplicates
+            # Extract module names from current imports for comparison
+            def get_module_name(imp_str: str) -> str:
+                """Extract the main module name from an import statement."""
+                # For 'import pandas as pd' -> 'pandas'
+                # For 'import pandas' -> 'pandas'
+                # For 'from typing import List' -> 'typing'
+                if imp_str.startswith('from '):
+                    # from X import Y
+                    parts = imp_str.split()
+                    if len(parts) >= 2:
+                        return parts[1]
+                elif imp_str.startswith('import '):
+                    # import X as Y or import X
+                    parts = imp_str.replace('import ', '').split(' as ')
+                    return parts[0].strip()
+                return imp_str
+            
+            # Get module names from current imports
+            current_modules = {get_module_name(imp) for imp in imports}
+            
+            # Add existing imports that don't duplicate module names
             for imp in existing_imports:
-                if imp not in imports:
+                module_name = get_module_name(imp)
+                # Only add if this module is not already imported
+                if module_name not in current_modules and imp not in imports:
                     imports.append(imp)
+                    current_modules.add(module_name)
         except Exception as e:
             logger.warning(f"Failed to extract imports from existing code: {e}")
 
@@ -175,7 +206,7 @@ def generate_function_code(metadata: dict, existing_code: str = None) -> str:
     # Add inputs (typically DataFrames)
     for inp in inputs:
         # Default to pd.DataFrame type hint if not specified
-        t = inp.get('type', 'pd.DataFrame')
+        t = normalize_type(inp.get('type', 'pd.DataFrame'))
         sig_args.append(f"{inp['name']}: {t}")
         
     # Add args
@@ -195,7 +226,7 @@ def generate_function_code(metadata: dict, existing_code: str = None) -> str:
     
     for arg in sorted_args:
         a_name = arg['name']
-        a_type = arg.get('type', 'any')
+        a_type = normalize_type(arg.get('type', 'any'))
         default = arg.get('default')
         
         # Format default value
@@ -211,15 +242,57 @@ def generate_function_code(metadata: dict, existing_code: str = None) -> str:
     
     # Imports string
     # Ensure we have essential imports
-    if imports:
-        # Check if pandas is needed (usually yes for algorithms)
-        if not any("pandas" in i for i in imports):
-             imports = ["import pandas as pd"] + imports
-    else:
-        imports = ["import pandas as pd"]
+    # Check if pandas is needed (check for any pandas import)
+    has_pandas = False
+    for imp in imports:
+        if "pandas" in imp and "import" in imp:
+            has_pandas = True
+            break
+    
+    if not has_pandas:
+        # Add pandas with standard alias
+        imports = ["import pandas as pd"] + imports
+
+
+    # Check for typing imports
+    typing_types = set()
+    if len(outputs) > 0:
+        typing_types.add("Optional")
+    if len(outputs) > 1:
+        typing_types.add("Tuple")
+
+    # Check args and inputs for typing types
+    for arg in args + inputs:
+        t = arg.get('type', '')
+        if 'List' in t: typing_types.add('List')
+        if 'Dict' in t: typing_types.add('Dict')
+        if 'Tuple' in t: typing_types.add('Tuple')
+        if 'Optional' in t: typing_types.add('Optional')
+        if 'Union' in t: typing_types.add('Union')
+        if 'Any' in t: typing_types.add('Any')
+
+    for t in sorted(list(typing_types)):
+        # Check if already imported
+        already_imported = False
+        for imp in imports:
+            if f"import {t}" in imp or f", {t}" in imp or f" {t}," in imp:
+                already_imported = True
+                break
+        if not already_imported:
+             imports.append(f"from typing import {t}")
 
     imports_str = "\n".join(imports)
     
+    # Return type annotation
+    if not outputs:
+        ret_annotation = "-> None"
+    elif len(outputs) == 1:
+        t = normalize_type(outputs[0].get('type', 'pd.DataFrame'))
+        ret_annotation = f"-> Optional[{t}]"
+    else:
+        types = [f"Optional[{normalize_type(o.get('type', 'pd.DataFrame'))}]" for o in outputs]
+        ret_annotation = f"-> Tuple[{', '.join(types)}]"
+
     # Docstring construction
     docstring_lines = []
     docstring_lines.append(f'{description}')
@@ -228,10 +301,6 @@ def generate_function_code(metadata: dict, existing_code: str = None) -> str:
     docstring_lines.append(f'    name: {name}')
     docstring_lines.append(f'    category: {category}')
     docstring_lines.append(f'    prompt: {prompt}')
-    
-    clean_imports = [i.replace('\n', '') for i in imports]
-    if clean_imports:
-        docstring_lines.append(f'    imports: {", ".join(clean_imports)}')
         
     docstring_lines.append('')
     docstring_lines.append('Parameters:')
@@ -240,16 +309,17 @@ def generate_function_code(metadata: dict, existing_code: str = None) -> str:
     # Inputs usually have role: input
     for inp in inputs:
         p_name = inp['name']
-        p_type = inp.get('type', 'pd.DataFrame')
-        docstring_lines.append(f'{p_name} ({p_type}): Input DataFrame.')
+        p_type = normalize_type(inp.get('type', 'pd.DataFrame'))
+        p_desc = inp.get('description', 'Input DataFrame')
+        docstring_lines.append(f'{p_name} ({p_type}): {p_desc}')
         docstring_lines.append(f'    role: input')
 
     for arg in args:
         p_name = arg['name']
-        p_type = arg.get('type', 'any')
+        p_type = normalize_type(arg.get('type', 'any'))
         p_desc = arg.get('description', f'Parameter {p_name}')
         
-        docstring_lines.append(f'{p_name} ({p_type}): {p_desc}.')
+        docstring_lines.append(f'{p_name} ({p_type}): {p_desc}')
         
         # Add metadata
         if arg.get('label'): docstring_lines.append(f'    label: {arg["label"]}')
@@ -264,24 +334,38 @@ def generate_function_code(metadata: dict, existing_code: str = None) -> str:
         if arg.get('max') is not None: docstring_lines.append(f'    max: {arg["max"]}')
         if arg.get('step') is not None: docstring_lines.append(f'    step: {arg["step"]}')
         if arg.get('priority'): docstring_lines.append(f'    priority: {arg["priority"]}')
-        if arg.get('role'): docstring_lines.append(f'    role: {arg["role"]}')
+        
+        # Explicitly mark as parameter role if not specified
+        role = arg.get('role', 'parameter')
+        docstring_lines.append(f'    role: {role}')
         
     docstring_lines.append('')
     docstring_lines.append('Returns:')
     
     if not outputs:
-        docstring_lines.append('pd.DataFrame: Result DataFrame.')
-    elif len(outputs) == 1:
-        docstring_lines.append(f'{outputs[0].get("type", "pd.DataFrame")}: Result.')
+        docstring_lines.append('None')
     else:
-        types = [o.get("type", "pd.DataFrame") for o in outputs]
-        docstring_lines.append(f'Tuple[{", ".join(types)}]: Results.')
+        for out in outputs:
+            o_name = out.get("name", "output")
+            o_type = normalize_type(out.get("type", "pd.DataFrame"))
+            o_desc = out.get("description", "Result")
+            docstring_lines.append(f'{o_name} ({o_type}): {o_desc}')
         
     docstring_str = "\n    ".join(docstring_lines)
     
     # Extract existing body if available
     body_str = f"    # Implementation\n    return {inputs[0]['name'] if inputs else 'pd.DataFrame()'}"
-    
+    if not outputs:
+        body_str = "    # Implementation\n    pass"
+    elif len(outputs) > 1:
+         # Default return for multiple outputs
+         ret_vals = []
+         if inputs:
+             # Just return input multiple times as placeholder?
+             # Or pd.DataFrame()
+             pass
+         body_str = f"    # Implementation\n    return " + ", ".join(["pd.DataFrame()" for _ in outputs])
+
     if existing_code:
         try:
             tree = ast.parse(existing_code)
@@ -338,7 +422,7 @@ def generate_function_code(metadata: dict, existing_code: str = None) -> str:
 
     code = f"""{imports_str}
 
-def {func_name}({sig_str}) -> pd.DataFrame:
+def {func_name}({sig_str}) {ret_annotation}:
     \"\"\"
     {docstring_str}
     \"\"\"
@@ -367,6 +451,9 @@ def parse_function_code(code: str) -> dict:
             
         metadata = parse_algorithm_metadata(docstring)
         params_meta = parse_docstring_params(docstring)
+        
+        # Always extract imports from actual code (not from docstring)
+        # This ensures single source of truth for imports
         imports = extract_imports_from_source(code)
         
         # Extract args from signature
@@ -381,16 +468,28 @@ def parse_function_code(code: str) -> dict:
             p_meta = params_meta.get(name, {})
             role = p_meta.get('role')
             
+            # Get type from annotation if not in docstring
+            arg_type = p_meta.get('type', 'any')
+            if arg_type == 'any' and arg.annotation:
+                 # Try to extract type from AST annotation
+                 try:
+                     if isinstance(arg.annotation, ast.Name):
+                         arg_type = arg.annotation.id
+                     elif isinstance(arg.annotation, ast.Attribute):
+                         arg_type = arg.annotation.attr # e.g. DataFrame from pd.DataFrame
+                 except:
+                     pass
+
             # Infer role if not set
             if not role:
-                if name == 'df' or 'df_' in name:
+                if name == 'df' or 'df_' in name or 'dataframe' in str(arg_type).lower():
                     role = 'input'
                 else:
                     role = 'parameter'
             
             item = {
                 "name": name,
-                "type": p_meta.get('type', 'any'),
+                "type": arg_type,
                 "description": p_meta.get('description', ''),
                 # Add other meta
                 "label": p_meta.get('label'),
@@ -411,16 +510,40 @@ def parse_function_code(code: str) -> dict:
             else:
                 args.append(item)
                 
-        # Outputs inference (simple for now)
+        # Outputs inference
         outputs = []
-        # Default output
-        outputs.append({"name": "result", "type": "pd.DataFrame"})
+        
+        if "Returns:" in docstring:
+             parsed_returns = parse_docstring_returns(docstring)
+             for i, ret in enumerate(parsed_returns):
+                outputs.append({
+                    "name": ret.get("name", f"output_{i}"),
+                    "type": ret["type"],
+                    "description": ret["description"]
+                })
+        else:
+             # Default output for legacy code
+             outputs.append({"name": "result", "type": "pd.DataFrame"})
             
+        # Extract description (everything before the first section)
+        desc_lines = []
+        for line in docstring.split('\n'):
+            stripped = line.strip()
+            if stripped.startswith('Algorithm:') or stripped.startswith('Parameters:') or stripped.startswith('Returns:') or stripped.startswith('Example:'):
+                break
+            if stripped: # Only add non-empty lines, or preserve formatting?
+                 # Let's preserve formatting but trim the line itself if needed?
+                 # Usually docstrings are indented.
+                 # Let's just strip for now as we rejoin with \n
+                 desc_lines.append(stripped)
+        
+        description = "\n".join(desc_lines).strip()
+
         return {
              "id": func_node.name,
              "category": metadata.get('category'),
              "name": metadata.get('name'),
-             "description": docstring.split('\\n')[0].strip(),
+             "description": description,
              "prompt": metadata.get('prompt'),
              "imports": imports,
              "args": args,

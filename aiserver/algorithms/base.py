@@ -44,6 +44,7 @@ class Algorithm:
     name: str
     category: str # ID of the category, e.g. "load_data"
     prompt: str
+    description: str = ""
     algo_module: Any = None # The module containing the function
     template: str = ""  # Code template for algorithm
     parameters: List[AlgorithmParameter] = field(default_factory=list)
@@ -91,6 +92,7 @@ class Algorithm:
             if not self.imports:
                 from .utils import extract_imports_from_func
                 self.imports = extract_imports_from_func(self.func)
+                print(f"[DEBUG] Extracted {len(self.imports)} imports for {self.id}: {self.imports}")
             
             # 3. Infer outputs if not provided
             if not self.outputs:
@@ -165,6 +167,17 @@ class Algorithm:
         if not metadata:
             return None
             
+        # Extract description
+        desc_lines = []
+        if docstring:
+            for line in docstring.split('\n'):
+                stripped = line.strip()
+                if stripped.startswith('Algorithm:') or stripped.startswith('Parameters:') or stripped.startswith('Returns:') or stripped.startswith('Example:'):
+                    break
+                if stripped: 
+                     desc_lines.append(stripped)
+        description = "\n".join(desc_lines).strip()
+            
         # 自动推断 ID 为函数名
         algo_id = func.__name__
         
@@ -174,6 +187,7 @@ class Algorithm:
             name=metadata.get('name', algo_id),
             category=metadata.get('category', 'uncategorized'),
             prompt=metadata.get('prompt', ''),
+            description=description,
             imports=metadata.get('imports', []),
             algo_module=module,
             # inputs/outputs 将在 initialize() 中自动推断

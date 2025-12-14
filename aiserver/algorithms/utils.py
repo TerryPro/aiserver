@@ -12,19 +12,48 @@ def extract_imports_from_source(source: str) -> List[str]:
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for name in node.names:
-                    imports.append(f"import {name.name}")
+                    if name.asname:
+                        imports.append(f"import {name.name} as {name.asname}")
+                    else:
+                        imports.append(f"import {name.name}")
             elif isinstance(node, ast.ImportFrom):
                 module = node.module or ""
                 for name in node.names:
-                    imports.append(f"from {module} import {name.name}")
+                    if name.asname:
+                        imports.append(f"from {module} import {name.name} as {name.asname}")
+                    else:
+                        imports.append(f"from {module} import {name.name}")
         return imports
     except Exception as e:
         # print(f"Warning: Failed to extract imports from source: {e}")
         return []
 
 def extract_imports_from_func(func: Callable) -> List[str]:
-    """Extract import statements from function source code."""
+    """Extract import statements from the module containing the function."""
     try:
+        # Get the module where the function is defined
+        module = inspect.getmodule(func)
+        if module is None:
+            print(f"[DEBUG] extract_imports_from_func: module is None for {func.__name__}")
+            return []
+        
+        # Try to get the module's source file
+        try:
+            module_file = inspect.getsourcefile(module)
+            print(f"[DEBUG] extract_imports_from_func: module_file = {module_file}")
+            if module_file:
+                with open(module_file, 'r', encoding='utf-8') as f:
+                    module_source = f.read()
+                imports = extract_imports_from_source(module_source)
+                print(f"[DEBUG] extract_imports_from_func: extracted {len(imports)} imports from module")
+                return imports
+        except Exception as e:
+            print(f"[DEBUG] extract_imports_from_func: Failed to read module file: {e}")
+            pass
+        
+        # Fallback: try to get source from the function itself
+        # (won't include module-level imports, but better than nothing)
+        print(f"[DEBUG] extract_imports_from_func: Falling back to function source")
         source = inspect.getsource(func)
         return extract_imports_from_source(source)
     except Exception as e:
@@ -192,6 +221,8 @@ def extract_parameters_from_func(func: Callable, overrides: Dict[str, Dict[str, 
                 param_type = "bool"
             elif param.annotation == list:
                 param_type = "list"
+            elif param.annotation == tuple:
+                param_type = "tuple"
             elif hasattr(param.annotation, '__name__'):
                 param_type = param.annotation.__name__
         elif param.default != inspect.Parameter.empty and param.default is not None:
@@ -222,6 +253,8 @@ def extract_parameters_from_func(func: Callable, overrides: Dict[str, Dict[str, 
                  param_type = "float"
              elif "bool" in doc_type_lower:
                  param_type = "bool"
+             elif "dataframe" in doc_type_lower:
+                 param_type = "DataFrame"
         
         if param_info.get("ignore"):
             continue
@@ -242,7 +275,11 @@ def extract_parameters_from_func(func: Callable, overrides: Dict[str, Dict[str, 
             role = doc_role
         else:
             # Infer role
-            if name == 'df':
+            is_df = False
+            if isinstance(param_type, str) and "dataframe" in param_type.lower():
+                is_df = True
+            
+            if name == 'df' or is_df:
                 role = 'input'
             elif name == 'output_var':
                 role = 'output'
@@ -334,3 +371,49 @@ def parse_algorithm_metadata(docstring: str) -> Dict[str, Any]:
                     metadata[key] = value
                     
     return metadata
+
+def parse_docstring_returns(docstring: str) -> List[Dict[str, str]]:
+    """
+    Parse Returns section from docstring.
+    """
+    if not docstring:
+        return []
+    
+    returns = []
+    lines = docstring.split('\n')
+    in_returns_section = False
+    
+    for line in lines:
+        stripped_line = line.strip()
+        if not stripped_line:
+            continue
+            
+        if stripped_line.startswith('Returns:'):
+            in_returns_section = True
+            continue
+        
+        if in_returns_section:
+            if stripped_line.startswith('Example:') or stripped_line.startswith('Algorithm:') or stripped_line.startswith('Parameters:'):
+                break
+            
+            if stripped_line == 'None':
+                continue
+                
+            # Match "name (type): description"
+            match_name = re.match(r'^(\w+)\s*\((.+)\)\s*:\s*(.+)$', stripped_line)
+            if match_name:
+                returns.append({
+                    "name": match_name.group(1).strip(),
+                    "type": match_name.group(2).strip(),
+                    "description": match_name.group(3).strip()
+                })
+                continue
+
+            # Match "Type: Description"
+            match = re.match(r'^([^:]+):\s*(.+)$', stripped_line)
+            if match:
+                r_type = match.group(1).strip()
+                r_desc = match.group(2).strip()
+                returns.append({"type": r_type, "description": r_desc})
+                
+    return returns
