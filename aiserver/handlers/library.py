@@ -6,6 +6,7 @@ from jupyter_server.base.handlers import APIHandler
 from ..prompts import algorithm as algorithm_prompts
 from ..lib import library as algorithm_templates
 from ..utils import code_manager
+from ..utils.reload_helper import reload_algorithm_modules
 
 logger = logging.getLogger(__name__)
 
@@ -30,41 +31,13 @@ class ReloadFunctionLibraryHandler(APIHandler):
     def post(self):
         try:
             logger.info("Reloading function library...")
-            importlib.invalidate_caches()
             
-            # 1. Reload base library modules (all algorithm.*)
-            # We need to reload submodules first, then the package
-            reloaded_count = 0
-            for name in list(sys.modules.keys()):
-                if name.startswith('algorithm.') and sys.modules[name]:
-                    try:
-                        importlib.reload(sys.modules[name])
-                        reloaded_count += 1
-                    except Exception as e:
-                        logger.warning(f"Failed to reload {name}: {e}")
-
-            if 'algorithm' in sys.modules:
-                importlib.reload(sys.modules['algorithm'])
-                logger.info(f"Reloaded algorithm package and {reloaded_count} submodules")
-
-            # 2. Reload aiserver adapters
-            # aiserver.algorithms depends on algorithm
-            if 'aiserver.algorithms' in sys.modules:
-                importlib.reload(sys.modules['aiserver.algorithms'])
-                logger.info("Reloaded aiserver.algorithms")
+            # 使用统一的重载工具
+            reload_result = reload_algorithm_modules()
             
-            # aiserver.lib.library depends on aiserver.algorithms
-            if 'aiserver.lib.library' in sys.modules:
-                importlib.reload(sys.modules['aiserver.lib.library'])
-                logger.info("Reloaded aiserver.lib.library")
-
-            # aiserver.prompts.algorithm depends on aiserver.algorithms
-            if 'aiserver.prompts.algorithm' in sys.modules:
-                importlib.reload(sys.modules['aiserver.prompts.algorithm'])
-                logger.info("Reloaded aiserver.prompts.algorithm")
-            
-            # 3. Fetch new metadata
+            # 获取新的元数据
             library = algorithm_templates.get_library_metadata()
+            
             self.finish(json.dumps(library, ensure_ascii=False))
             
         except Exception as e:
@@ -153,30 +126,10 @@ class ManageAlgorithmHandler(APIHandler):
                 self.finish(json.dumps({"error": "Invalid action"}))
                 return
 
-            # Trigger reload automatically
-            # We can instantiate ReloadHandler or just call logic.
-            # Instantiating is messy with request/response.
-            # Let's just call the reload logic? Or let frontend call reload?
-            # The design says "Success -> Reload".
-            # Let's trigger reload here.
+            # 触发自动重载
+            reload_algorithm_modules()
             
-            # Reuse logic from ReloadFunctionLibraryHandler?
-            # It's better to refactor reload logic into a function, but for now I'll copy-paste or call via internal request?
-            # Internal request is hard.
-            # I'll just trigger basic reload of metadata for response.
-            
-            # Actually, to make sure the change is reflected immediately, we MUST reload.
-            # Let's duplicate the reload logic briefly or move it to a util.
-            # Moving to util is better.
-            
-            # For now, I'll just do minimal reload to get response.
-            
-            importlib.invalidate_caches()
-            if 'aiserver.algorithms' in sys.modules:
-                importlib.reload(sys.modules['aiserver.algorithms'])
-            if 'aiserver.lib.library' in sys.modules:
-                importlib.reload(sys.modules['aiserver.lib.library'])
-                
+            # 获取更新后的元数据
             library = algorithm_templates.get_library_metadata()
             self.finish(json.dumps(library, ensure_ascii=False))
 

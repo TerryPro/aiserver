@@ -1,9 +1,8 @@
 from ._version import __version__
-from .handlers import setup_handlers
 import sys
 import os
 
-# Add library directory to sys.path to allow importing 'algorithm' without installation
+# Add library directory to sys.path FIRST before importing anything else
 # This supports dynamic editing of the algorithm library
 try:
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -16,6 +15,9 @@ try:
         # print(f"Added {library_path} to sys.path")
 except Exception as e:
     pass  # Fallback to installed package if path manipulation fails
+
+# Now import handlers after path is set
+from .handlers import setup_handlers
 
 
 def _jupyter_server_extension_points():
