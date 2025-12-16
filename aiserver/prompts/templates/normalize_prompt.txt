@@ -1,0 +1,384 @@
+# 核心任务
+将用户提供的非标准代码重构为符合《算法节点开发指南》的标准算法函数。
+
+# 必须遵守的规范要点（CRITICAL）
+
+## 1. 函数签名规范
+
+### 类型注解（强制）
+- **所有参数**必须添加类型注解（如 `df: pd.DataFrame`, `window: int`）
+- **返回值**必须添加类型注解：
+  - 无返回值: `-> None`
+  - 单返回值: `-> Optional[pd.DataFrame]`（需导入 `from typing import Optional`）
+  - 多返回值: `-> Tuple[Optional[pd.DataFrame], ...]`（需导入 `from typing import Tuple, Optional`）
+
+### 参数默认值（强制）
+- 所有 `role: parameter` 的参数必须提供默认值
+- 或标记为 `priority: critical` 强制用户输入
+- `role: input` 的 DataFrame 参数无需默认值
+
+### 函数命名
+- 使用 snake_case 命名规范（如 `calculate_moving_average`）
+- 函数名应清晰描述功能
+
+## 2. Docstring 格式规范（极其重要）
+
+### Algorithm 块（必填字段）
+
+```
+    Algorithm:
+        name: 算法中文名称
+        category: 算法分类ID（必须从有效分类中选择）
+        prompt: 提示词模板
+        imports: import pandas as pd, import numpy as np
+```
+
+**name**（必填）
+- 算法的中文显示名称，简洁明了
+
+**category**（必填，有限枚举）
+- 必须从以下分类中选择一个（严格限制）：
+  - `data_operation`: 数据处理、转换、清洗、统计计算
+  - `data_preprocessing`: 数据预处理、特征工程
+  - `plotting`: 数据可视化、图表绘制
+  - `eda`: 探索式数据分析
+  - `anomaly_detection`: 异常检测
+  - `trend_plot`: 趋势分析绘图
+  - `load_data`: 数据加载
+- 禁止使用未定义的分类名称
+
+**prompt**（必填，支持占位符）
+- 支持以下标准占位符（推荐优先使用 `{{VAR_NAME}}`）：
+  - `{{VAR_NAME}}`: 当前选中的变量名（如 "df"）— **最常用**
+  - `{{VAR_TYPE}}`: 当前选中变量的类型（如 "DataFrame"）
+  - `{{ALGO_NAME}}`: 当前算法的名称
+  - `{{param_name}}`: 函数定义的参数名，替换为用户输入的值
+- 示例: `"对变量 {{VAR_NAME}} 计算移动平均，窗口大小为 {{window}}"`
+
+**imports**（选填，在 Algorithm 块内声明）
+- 格式: `imports: import pandas as pd, import numpy as np`
+- 逗号分隔多个导入语句
+- **注意**: 实际代码中的 import 必须在文件顶部显式声明，此字段仅为元数据记录
+
+### Parameters 块（格式严格）
+
+**参数声明格式**（必须严格遵守）
+```
+    Parameters:
+    param_name (type): 参数描述.
+        label: 前端显示名称
+        widget: 控件类型
+        role: input 或 parameter
+        priority: critical 或 non-critical
+        min: 最小值（仅数值类型）
+        max: 最大值（仅数值类型）
+        step: 步长（仅数值类型）
+        options: ["选项1", "选项2"]（仅 select 控件）
+```
+
+**格式要求（极其重要）**
+- 参数声明必须在同一行: `param_name (type): 描述文字.`
+- 参数属性每行一个，缩进 8 个空格
+- **禁止**使用嵌套的 `description:` 字段
+- **禁止**使用冒号换行格式
+
+**role 判断规则**（关键）
+- `role: input` — 当参数满足以下条件时：
+  - 类型为 `pd.DataFrame` 或 `DataFrame`
+  - 代表上游数据输入
+  - 通常命名为 `df`, `df1`, `df_left` 等
+  - 前端显示为左侧输入锚点
+  
+- `role: parameter` — 当参数满足以下条件时：
+  - 类型为 `int`, `float`, `str`, `bool`, `list` 等基本类型
+  - 代表算法配置参数
+  - 前端显示为属性面板控件
+
+**priority 说明**
+- `priority: critical` — 用户必须输入，无默认值
+- `priority: non-critical` — 可选参数，必须有默认值
+
+**widget 类型与约束**
+
+| 参数类型 | 推荐 widget | 必要属性 | 说明 |
+|---------|------------|---------|------|
+| `str` | `input` | - | 标准文本框 |
+| `str` | `select` | `options` | 下拉选择，options 为字符串列表 |
+| `str` | `file-selector` | - | 文件路径选择器 |
+| `str` | `column-selector` | 需要 `role: input` 的 DataFrame | 列名选择器（单选） |
+| `int`/`float` | `number` | `min`, `max`, `step`（可选） | 数值输入框 |
+| `bool` | `checkbox` | - | 布尔开关 |
+| `list` | `column-selector` | 需要 `role: input` 的 DataFrame | 列名选择器（多选） |
+
+**约束说明**
+- `options`: 仅用于 `widget: select`，格式为 JSON 数组: `["选项A", "选项B"]` 或 `[1, 2, 3]`
+- `min/max/step`: 仅用于 `int`/`float` 类型的 `widget: number`
+- `column-selector`: 依赖于函数存在 `role: input` 的 DataFrame 参数
+
+### Returns 块
+
+**格式**（必须在同一行）
+```
+    Returns:
+    output_name (type): 返回值描述.
+```
+
+**单返回值示例**
+```
+    Returns:
+    result_df (pd.DataFrame): 处理后的数据.
+```
+
+**多返回值示例**（每个返回值单独一行）
+```
+    Returns:
+    train_df (pd.DataFrame): 训练集数据.
+    test_df (pd.DataFrame): 测试集数据.
+```
+
+**无返回值**
+```
+    Returns:
+    None
+```
+
+## 3. 代码导入规范
+
+### Import 声明位置
+- 所有 import 必须在文件顶部显式声明
+- 按标准顺序：标准库 → 第三方库 → 本地模块
+- **禁止**在 docstring 中编写 import 语句（仅在 Algorithm 块通过 `imports:` 字段记录元数据）
+- **禁止**在函数内部 import（除非有特殊性能考虑）
+
+### 常用导入
+```python
+import pandas as pd
+import numpy as np
+from typing import Optional, Tuple
+import matplotlib.pyplot as plt
+```
+
+## 4. 输出结构要求
+
+### 双段输出格式（强制）
+
+**第一段：标准算法函数定义**
+```python
+import pandas as pd
+from typing import Optional
+
+def function_name(df: pd.DataFrame, param: int = 10) -> Optional[pd.DataFrame]:
+    """
+    函数简要描述
+    
+    Algorithm:
+        name: 算法名称
+        category: data_operation
+        prompt: 对 {{VAR_NAME}} 执行操作
+        imports: import pandas as pd
+    
+    Parameters:
+    df (pd.DataFrame): 输入数据.
+        role: input
+    param (int): 参数说明.
+        label: 参数名
+        widget: number
+        min: 1
+        max: 100
+        priority: non-critical
+        role: parameter
+    
+    Returns:
+    result (pd.DataFrame): 处理后的数据.
+    """
+    if df is None:
+        return None
+    # 函数实现
+    result = df.copy()
+    # ... 处理逻辑
+    return result
+```
+
+**分隔标记**（必须）
+```python
+# ===== 测试调用示例 =====
+```
+
+**第二段：测试调用代码**（3-5行）
+```python
+# ===== 测试调用示例 =====
+result = function_name(df, param=20)
+print(result.head())
+```
+
+### 测试代码规范
+- 简洁直接，3-5 行即可
+- 假设输入变量已存在（如 `df`），直接使用
+- 禁止包含 `if` 判断、大段注释、多种测试场景
+- 禁止创建测试数据（如 `df = pd.DataFrame(...)`）
+- 仅展示基本调用和结果查看
+
+## 5. 完整示例参考
+
+### 示例 1：单返回值（数据操作）
+
+```python
+import pandas as pd
+from typing import Optional
+
+def calculate_moving_average(df: pd.DataFrame, column: str, window: int = 10) -> Optional[pd.DataFrame]:
+    """
+    计算指定列的移动平均值
+    
+    Algorithm:
+        name: 移动平均计算
+        category: data_operation
+        prompt: 对 {{VAR_NAME}} 的 {{column}} 列计算移动平均，窗口大小为 {{window}}
+        imports: import pandas as pd
+    
+    Parameters:
+    df (pd.DataFrame): 输入数据表.
+        role: input
+    column (str): 要计算的列名.
+        label: 列名
+        widget: column-selector
+        priority: critical
+        role: parameter
+    window (int): 移动窗口大小.
+        label: 窗口大小
+        widget: number
+        min: 1
+        max: 100
+        step: 1
+        priority: non-critical
+        role: parameter
+    
+    Returns:
+    result_df (pd.DataFrame): 包含移动平均列的数据表.
+    """
+    if df is None or column not in df.columns:
+        return None
+    result = df.copy()
+    result[f'{{column}}_ma'] = result[column].rolling(window=window).mean()
+    return result
+
+# ===== 测试调用示例 =====
+result = calculate_moving_average(df, column='temperature', window=10)
+print(result.head())
+```
+
+### 示例 2：多返回值（数据拆分）
+
+```python
+import pandas as pd
+from typing import Tuple, Optional
+
+def split_data(df: pd.DataFrame, ratio: float = 0.8) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame]]:
+    """
+    将数据集拆分为训练集和测试集
+    
+    Algorithm:
+        name: 数据集拆分
+        category: data_preprocessing
+        prompt: 将 {{VAR_NAME}} 拆分为训练集和测试集，比例为 {{ratio}}
+        imports: import pandas as pd
+    
+    Parameters:
+    df (pd.DataFrame): 输入数据集.
+        role: input
+    ratio (float): 训练集比例.
+        label: 训练集比例
+        widget: number
+        min: 0.1
+        max: 0.9
+        step: 0.1
+        priority: non-critical
+        role: parameter
+    
+    Returns:
+    train_df (pd.DataFrame): 训练集数据.
+    test_df (pd.DataFrame): 测试集数据.
+    """
+    if df is None:
+        return None, None
+    train_size = int(len(df) * ratio)
+    train_df = df.iloc[:train_size]
+    test_df = df.iloc[train_size:]
+    return train_df, test_df
+
+# ===== 测试调用示例 =====
+train, test = split_data(df, ratio=0.8)
+print(f"训练集: {{len(train)}}, 测试集: {{len(test)}}")
+```
+
+### 示例 3：无返回值（绘图）
+
+```python
+import pandas as pd
+import matplotlib.pyplot as plt
+
+def plot_histogram(df: pd.DataFrame, column: str, bins: int = 20) -> None:
+    """
+    绘制指定列的直方图
+    
+    Algorithm:
+        name: 直方图绘制
+        category: plotting
+        prompt: 绘制 {{VAR_NAME}} 中 {{column}} 列的直方图，bins={{bins}}
+        imports: import pandas as pd, import matplotlib.pyplot as plt
+    
+    Parameters:
+    df (pd.DataFrame): 输入数据表.
+        role: input
+    column (str): 要绘制的列名.
+        label: 列名
+        widget: column-selector
+        priority: critical
+        role: parameter
+    bins (int): 分箱数量.
+        label: 分箱数
+        widget: number
+        min: 5
+        max: 100
+        step: 5
+        priority: non-critical
+        role: parameter
+    
+    Returns:
+    None
+    """
+    if df is not None and column in df.columns:
+        plt.figure(figsize=(10, 6))
+        df[column].hist(bins=bins)
+        plt.title(f'{{column}} 分布')
+        plt.xlabel(column)
+        plt.ylabel('频数')
+        plt.show()
+
+# ===== 测试调用示例 =====
+plot_histogram(df, column='temperature', bins=30)
+```
+
+## 6. 禁止事项（CRITICAL）
+
+- ❌ **禁止**在 docstring 内部编写 import 语句
+- ❌ **禁止**在 Parameters 块使用嵌套的 `description:` 字段
+- ❌ **禁止**使用冒号换行格式（如 `param (type):\n    description: ...`）
+- ❌ **禁止**使用未定义的 category 分类名
+- ❌ **禁止**在测试代码中创建测试数据
+- ❌ **禁止**添加 "# Generated by ..." 类似的注释
+- ❌ **禁止**省略类型注解
+- ❌ **禁止**在测试代码中包含复杂逻辑或多个测试场景
+
+## 7. 质量检查清单
+
+生成代码前请自检：
+- ✅ 所有参数和返回值是否有类型注解？
+- ✅ Algorithm 块的 category 是否为有效分类？
+- ✅ prompt 是否使用了 `{{VAR_NAME}}` 占位符？
+- ✅ Parameters 块格式是否正确（同一行声明，8空格缩进属性）？
+- ✅ role 是否正确判断（DataFrame=input，其他=parameter）？
+- ✅ parameter 角色的参数是否有默认值？
+- ✅ import 是否在文件顶部？
+- ✅ 测试代码是否简洁（3-5行）？
+- ✅ 是否包含双段输出结构和分隔标记？
