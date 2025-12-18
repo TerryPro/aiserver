@@ -7,6 +7,7 @@ from .system import GetServerRootHandler, RouteHandler, ConfigHandler
 from .session import SessionHistoryHandler
 from .models import ModelsHandler
 from .algorithm_save import SaveAlgorithmHandler
+from .algorithm_validate import ValidateAlgorithmHandler
 from ..core.log import setup_logging
 
 # 配置日志系统
@@ -28,6 +29,7 @@ def setup_handlers(web_app):
         (url_path_join(base_url, "aiserver", "reload-library"), ReloadFunctionLibraryHandler),
         (url_path_join(base_url, "aiserver", "algorithm-manage"), ManageAlgorithmHandler),
         (url_path_join(base_url, "aiserver", "algorithm-save"), SaveAlgorithmHandler),
+        (url_path_join(base_url, "aiserver", "algorithm-validate"), ValidateAlgorithmHandler),
         (url_path_join(base_url, "aiserver", "get-csv-columns"), GetCSVColumnsHandler),
         (url_path_join(base_url, "aiserver", "get-server-root"), GetServerRootHandler),
         (url_path_join(base_url, "aiserver", "get-example"), RouteHandler),

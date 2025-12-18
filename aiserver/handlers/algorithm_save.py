@@ -12,6 +12,7 @@ import ast
 from jupyter_server.base.handlers import APIHandler
 from ..utils import code_manager
 from ..utils.reload_helper import reload_algorithm_modules
+from ..validators import AlgorithmValidator
 
 logger = logging.getLogger(__name__)
 
@@ -44,11 +45,30 @@ class SaveAlgorithmHandler(APIHandler):
             code = data.get("code")
             category = data.get("category")
             overwrite = data.get("overwrite", False)
+            skip_validation = data.get("skip_validation", False)  # 是否跳过验证
             
             if not code:
                 self.set_status(400)
                 self.finish(json.dumps({"error": "缺少代码内容"}))
                 return
+            
+            # 格式检查和验证
+            if not skip_validation:
+                validator = AlgorithmValidator()
+                validation_result = validator.validate(code)
+                
+                # 如果验证失败,返回详细的验证结果
+                if not validation_result.valid:
+                    self.set_status(400)
+                    self.finish(json.dumps({
+                        "error": "算法代码不符合规范",
+                        "validation": validation_result.to_dict()
+                    }, ensure_ascii=False))
+                    return
+                
+                # 即使验证通过,如果有警告或建议,也返回给前端
+                if validation_result.issues:
+                    logger.info(f"算法验证通过，但存在 {len(validation_result.issues)} 个提示")
             
             # 提取函数名（算法ID）
             algorithm_id = self._extract_function_name(code)
@@ -91,13 +111,22 @@ class SaveAlgorithmHandler(APIHandler):
             
             # 返回成功结果
             file_path = code_manager.get_algorithm_path(algorithm_id)
-            self.finish(json.dumps({
+            result = {
                 "success": True,
                 "algorithm_id": algorithm_id,
                 "file_path": file_path,
                 "category": category,
                 "message": f"算法{action}成功"
-            }, ensure_ascii=False))
+            }
+            
+            # 如果进行了验证,附加验证信息
+            if not skip_validation:
+                validator = AlgorithmValidator()
+                validation_result = validator.validate(code)
+                if validation_result.issues:
+                    result["validation"] = validation_result.to_dict()
+            
+            self.finish(json.dumps(result, ensure_ascii=False))
             
         except ValueError as e:
             logger.error(f"保存算法失败（参数错误）: {str(e)}")
