@@ -158,7 +158,7 @@ def get_function_code(algo_id: str) -> str:
 def generate_function_code(metadata: dict, existing_code: str = None) -> str:
     """
     Generate Python code for an algorithm function based on metadata.
-    If existing_code is provided, preserves the function body.
+    If existing_code is provided, preserves the function body and imports.
     
     使用 core/generator 模块实现，避免代码重复
     """
@@ -174,9 +174,9 @@ def generate_function_code(metadata: dict, existing_code: str = None) -> str:
         extractor = CodeExtractor()
         existing_body = extractor.extract_function_body(existing_code)
     
-    # 使用核心生成器
+    # 使用核心生成器 - 传入existing_code以保留imports
     generator = CodeGenerator()
-    return generator.generate_function_code(algo_metadata, existing_body)
+    return generator.generate_function_code(algo_metadata, existing_body, existing_code)
 
 def parse_function_code(code: str) -> dict:
     """
