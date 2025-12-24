@@ -41,3 +41,15 @@ def _load_jupyter_server_extension(server_app):
 
 # For backward compatibility with notebook server - useful for Binder/JupyterHub
 load_jupyter_server_extension = _load_jupyter_server_extension
+
+# Export TableWalker API
+from .tablewalker import show_df
+
+__all__ = [
+    "__version__",
+    "_jupyter_server_extension_points",
+    "_load_jupyter_server_extension",
+    "load_jupyter_server_extension",
+    "setup_handlers",
+    "show_df"
+]
