@@ -38,6 +38,9 @@ class SaveAlgorithmHandler(APIHandler):
     }
     """
     
+    def check_xsrf_cookie(self):
+        return
+
     def post(self):
         try:
             data = json.loads(self.request.body)

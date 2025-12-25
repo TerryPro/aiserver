@@ -12,6 +12,9 @@ logger = logging.getLogger(__name__)
 
 class GetFunctionLibraryHandler(APIHandler):
     # Removed @tornado.web.authenticated decorator to disable authentication
+    def check_xsrf_cookie(self):
+        return
+
     def get(self):
         try:
             library = algorithm_templates.get_library_metadata()
@@ -46,6 +49,9 @@ class ReloadFunctionLibraryHandler(APIHandler):
             self.finish(json.dumps({"error": str(e)}))
 
 class ManageAlgorithmHandler(APIHandler):
+    def check_xsrf_cookie(self):
+        return
+
     def post(self):
         try:
             data = json.loads(self.request.body)
