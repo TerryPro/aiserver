@@ -41,6 +41,7 @@ COMMON_INPUT_FORMAT = """
 - **<CODE>**：需处理、修复或引用的源代码。
 - **<OUTPUT>**：代码的执行结果、报错信息或控制台输出。
 - **<VARIABLES>**：当前Jupyter环境中的变量元数据（DataFrame结构、列名等）。
+- **<ALGORITHMS>**：可用的算法库信息，包含内置算法的接口和使用说明。
 - **<PREVIOUS_CODE>**：当前Notebook中之前单元格的代码片段或定义摘要（仅供参考上下文）。
 """.strip()
 
@@ -131,6 +132,27 @@ NORMALIZE_TASK = _load_prompt_template(
 """
 )
 
+# --- LIBRARY Template ---
+LIBRARY_PROMPT_TEMPLATE = _load_prompt_template(
+    'library_prompt.txt',
+    fallback="""
+# 可用算法库 (Library Algorithms)
+
+你可以使用以下内置算法来帮助用户解决问题。这些算法已经过测试和优化，直接使用可以提高代码质量和效率：
+
+{ALGORITHM_CATEGORIES}
+
+## 使用指南
+
+- **输入参数**: 表示算法需要的数据输入，通常是 DataFrame 类型
+- **配置参数**: 表示算法的配置选项，如阈值、方法选择等
+- **输出结果**: 表示算法返回的数据，通常也是 DataFrame 类型
+- 优先使用这些内置算法，可以提高代码质量和执行效率
+- 导入方式：from algorithm import algorithm_name
+- 参考现有算法的参数类型和使用模式来设计新算法
+"""
+)
+
 # ==========================================
 # 3. Assembly (组装)
 # ==========================================
@@ -143,6 +165,51 @@ FIX_SYSTEM_PROMPT = _assemble_prompt(COMMON_ROLE, FIX_TASK, CODE_FORMAT, CODE_ST
 REFACTOR_SYSTEM_PROMPT = _assemble_prompt(COMMON_ROLE, REFACTOR_TASK, CODE_FORMAT, CODE_STYLE)
 EXPLAIN_SYSTEM_PROMPT = _assemble_prompt(COMMON_ROLE, EXPLAIN_TASK, MARKDOWN_FORMAT, MARKDOWN_STYLE)
 NORMALIZE_SYSTEM_PROMPT = _assemble_prompt(COMMON_ROLE, NORMALIZE_TASK, CODE_FORMAT, CODE_STYLE)
+
+def construct_library_prompt(metadata_by_label):
+    """
+    使用模板构造算法库提示词，并用<ALGORITHMS>标签包装
+
+    Args:
+        metadata_by_label: 按分类标签组织的算法元数据字典
+
+    Returns:
+        str: 用XML标签包装的算法库提示词
+    """
+    algorithm_categories = []
+
+    for category_label, algorithms in metadata_by_label.items():
+        category_content = f"## {category_label}\n\n"
+
+        for algo_dict in algorithms:
+            category_content += f"- **{algo_dict['name']}** (`{algo_dict['id']}`): {algo_dict['description']}\n"
+
+            # 显示输入参数 (inputs)
+            if algo_dict.get('inputs'):
+                input_str = ", ".join([f"{p['name']}({p['type']})" for p in algo_dict['inputs']])
+                category_content += f"  输入: {input_str}\n"
+
+            # 显示配置参数 (args)
+            if algo_dict.get('args'):
+                param_str = ", ".join([f"{p['name']}({p['type']})" for p in algo_dict['args']])
+                category_content += f"  参数: {param_str}\n"
+
+            # 显示输出参数 (outputs)
+            if algo_dict.get('outputs'):
+                output_str = ", ".join([f"{o['name']}({o['type']})" for o in algo_dict['outputs']])
+                category_content += f"  输出: {output_str}\n"
+
+            category_content += "\n"
+
+        algorithm_categories.append(category_content)
+
+    algorithm_categories_str = "\n".join(algorithm_categories)
+
+    # 使用模板生成内容，然后用XML标签包装
+    library_content = LIBRARY_PROMPT_TEMPLATE.format(ALGORITHM_CATEGORIES=algorithm_categories_str)
+
+    return f"\n<ALGORITHMS>\n{library_content}\n</ALGORITHMS>\n"
+
 
 # Mode mapping
 MODE_PROMPTS = {

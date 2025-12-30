@@ -372,16 +372,54 @@ class GenerateHandler(APIHandler):
     def construct_system_prompt(self, options):
         """
         构造系统提示词，定义AI的角色和输出规范。
-        
+
         Args:
             options: 选项字典，包含 mode 等参数
-            
+
         Returns:
             str: 系统提示词内容
         """
         mode = options.get("mode", "create")
-        
+        use_system_library = options.get("useSystemLibrary", False)
+
         # 直接获取模式对应的完整系统提示词
         system_content = prompts.MODE_PROMPTS.get(mode, prompts.MODE_PROMPTS["create"])
-        
+
+        # 如果启用了系统算法库，添加库信息到提示词
+        if use_system_library:
+            try:
+                system_content += self._construct_library_prompt()
+            except Exception as e:
+                logger.warning(f"Failed to construct library prompt: {e}")
+                # 如果库加载失败，继续使用原始prompt，不中断服务
+
         return system_content
+
+    def _construct_library_prompt(self):
+        """
+        构造包含Library算法信息的提示词部分
+
+        Returns:
+            str: 包含算法库信息的提示词字符串
+        """
+        try:
+            # 参考算法管理面板的实现方式，直接使用已有的算法库元数据获取逻辑
+            llm_logger.info("开始获取算法库元数据...")
+
+            # 使用与算法管理面板相同的方法
+            from ..lib import library as algorithm_templates
+            metadata_by_label = algorithm_templates.get_library_metadata()
+            llm_logger.info(f"算法库元数据获取完成，发现{len(metadata_by_label)}个类别")
+
+            # 使用统一的提示词模板系统构造算法库提示词
+            from ..prompts import system as prompts
+            library_info = prompts.construct_library_prompt(metadata_by_label)
+
+            return library_info
+
+        except ImportError as e:
+            logger.warning(f"Library not available: {e}")
+            return "\n\n## 注意\n算法库暂时不可用，将使用标准AI生成方式。\n\n"
+        except Exception as e:
+            logger.warning(f"Error scanning library: {e}")
+            return "\n\n## 注意\n算法库扫描失败，将使用标准AI生成方式。\n\n"
